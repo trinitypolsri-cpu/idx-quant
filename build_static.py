@@ -136,6 +136,30 @@ def main(kirim_alert: bool = False, top_scalp: int = 20):
             x["level_teks"] = format_teks(x["ticker"], a)
     tulis("level.json", lv)
 
+    # ---- kandidat ARA ----
+    from idxquant import ara as ar
+    A = ar.kumpulkan(prep)
+    if not A.empty:
+        hari = A[A.index == A.index.max()].copy()
+        hari["skor_ara"] = hari.apply(ar.skor, axis=1)
+        hari["sisa_ara"] = ((hari["limit"] - hari["ret"]) * 100).round(1)
+        hari = hari[hari["skor_ara"] >= 20].nlargest(15, "skor_ara")
+        ara_rows = [{
+            "ticker": r.ticker, "harga": round(float(r.close)),
+            "skor": round(float(r.skor_ara)),
+            "ret": round(float(r.ret) * 100, 2),
+            "sisa_ara": float(r.sisa_ara),
+            "rvol": round(float(r.rvol), 2) if pd.notna(r.rvol) else None,
+            "pos_close": round(float(r.pos_close) * 100) if pd.notna(r.pos_close) else None,
+            "ara_kemarin": bool(r.ara_kemarin),
+            # Peluang dari tabel kalibrasi historis 302rb observasi
+            "peluang": (14.3 if r.skor_ara >= 70 else 11.9 if r.skor_ara >= 60
+                        else 4.4 if r.skor_ara >= 50 else 1.3 if r.skor_ara >= 40
+                        else 0.5 if r.skor_ara >= 30 else 0.4),
+        } for r in hari.itertuples()]
+        tulis("ara.json", {"rows": ara_rows, "base_rate": 0.171,
+                           "tanggal": str(A.index.max().date())})
+
     # ---- Wyckoff dari bar intraday hasil scan ----
     wy_rows = []
     for t in [x["ticker"] for x in sc_rows[:top_scalp]]:

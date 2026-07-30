@@ -99,6 +99,7 @@ main{padding:14px 12px 40px}
 
 <nav>
   <button class="on" data-t="sinyal">Sinyal</button>
+  <button data-t="ara">ARA</button>
   <button data-t="scalping">Scalping</button>
   <button data-t="sektor">Sektor</button>
   <button data-t="semua">Semua</button>
@@ -118,9 +119,9 @@ async function J(n){ try{ const r=await fetch(`data/${n}.json?t=${Date.now()}`);
   return r.ok?await r.json():null; }catch(e){ return null; } }
 
 async function boot(){
-  const [s,scr,sec,sc,lv]=await Promise.all(
-    [J("ringkasan"),J("screener"),J("sektor"),J("scalping"),J("level")]);
-  Object.assign(D,{s,scr,sec,sc,lv});
+  const [s,scr,sec,sc,lv,ara]=await Promise.all(
+    [J("ringkasan"),J("screener"),J("sektor"),J("scalping"),J("level"),J("ara")]);
+  Object.assign(D,{s,scr,sec,sc,lv,ara});
   if(!s){ $("#main").innerHTML=`<div class="empty">Data belum tersedia.<br>
     Jalankan workflow GitHub Actions dulu.</div>`; return; }
 
@@ -203,6 +204,35 @@ function render(tab){
         + `<div class="foot">Ketuk kartu untuk melihat pivot, TP, dan SL.
            Semua level sudah dibulatkan ke fraksi harga IDX dan dipotong batas ARA.</div>`
       : `<div class="empty">Tidak ada sinyal aktif saat ini.</div>`;
+  }
+
+  else if(tab==="ara"){
+    const a=(D.ara||{}).rows||[], base=(D.ara||{}).base_rate||0.171;
+    m.innerHTML = a.length
+      ? `<div class="sect">Potensi ARA · base rate ${base}%</div>`
+        + a.map(x=>{
+            const kuat = x.skor>=60, sedang = x.skor>=40;
+            return `<div class="card"><div class="crow">
+              <span class="dot" style="background:${kuat?"var(--neg)":sedang?"var(--accent2)":"var(--faint)"}"></span>
+              <div><div class="tk">${x.ticker}</div>
+                <div class="sub">skor ${x.skor} · peluang ~${x.peluang}%
+                  (${Math.round(x.peluang/base)}x base)</div></div>
+              <div class="right"><div class="big num">${rp(x.harga)}</div>
+                <div class="sub num ${cls(x.ret)}">${fmt(x.ret,2)}</div></div>
+            </div>
+            <div class="tags">
+              <span class="tag">RVol ${x.rvol??"—"}x</span>
+              <span class="tag">Tutup ${x.pos_close??"—"}%</span>
+              <span class="tag">Sisa ARA ${x.sisa_ara}%</span>
+              ${x.ara_kemarin?`<span class="tag kuat">ARA kemarin</span>`:""}
+            </div></div>`;
+          }).join("")
+        + `<div class="foot"><b>Ini peningkatan peluang, bukan ramalan.</b>
+           Skor 70+ historisnya diikuti ARA <b>14%</b> waktu — artinya <b>86% tidak</b>.
+           Angkanya dari 302.028 observasi 5 tahun dan sudah diuji di luar sampel.
+           Tanpa data foreign flow dan broker summary (berlisensi, berbayar), ini
+           hanya memakai harga dan volume.</div>`
+      : `<div class="empty">Tidak ada kandidat ARA hari ini.</div>`;
   }
 
   else if(tab==="scalping"){
