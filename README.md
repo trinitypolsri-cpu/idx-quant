@@ -366,3 +366,4 @@ Output ke `output/`: `screening.csv`, `event_study.csv`, `backtest_summary.csv`,
   sebagai helper di `config.py`.
 
 Ini riset kuantitatif, bukan rekomendasi investasi.
+"# idx-quants" 
