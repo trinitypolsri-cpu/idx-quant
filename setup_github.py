@@ -165,10 +165,29 @@ if __name__ == "__main__":
             print('  python run_alerts.py --telegram --token "TOKEN_ANDA"')
             sys.exit(1)
         d = json.loads(c.read_text(encoding="utf-8"))
-        print("Salin nilai ini ke GitHub Secrets:\n")
-        print(f"  TELEGRAM_BOT_TOKEN = {d.get('telegram_token') or '(belum dipasang)'}")
-        print(f"  TELEGRAM_CHAT_ID   = {d.get('telegram_chat_id') or '(belum dipasang)'}")
-        print(f"  NTFY_TOPIC         = {d.get('ntfy_topic') or '-'}")
+        items = [
+            ("TELEGRAM_BOT_TOKEN", d.get("telegram_token")),
+            ("TELEGRAM_CHAT_ID", d.get("telegram_chat_id")),
+            ("NTFY_TOPIC", d.get("ntfy_topic")),
+        ]
+        print("=" * 62)
+        print("GITHUB SECRETS")
+        print("=" * 62)
+        print("\nGitHub punya DUA kolom. Isi terpisah — jangan salin barisnya utuh.")
+        print("Kolom Name hanya boleh huruf, angka, dan garis bawah.\n")
+        for i, (nama, nilai) in enumerate(items, 1):
+            if not nilai:
+                print(f"--- Secret {i} : {nama} — BELUM DIPASANG, lewati ---\n")
+                continue
+            print(f"--- Secret {i} ---")
+            print("  Name  (salin baris di bawah ini saja):")
+            print(f"{nama}")
+            print("  Secret (salin baris di bawah ini saja):")
+            print(f"{nilai}")
+            print()
+        print("Kalau muncul error 'Secret names can only contain alphanumeric...',")
+        print("berarti kolom Name ikut terisi tanda '=' atau nilainya. Kosongkan,")
+        print("lalu ketik ulang nama secret-nya secara manual.")
         print("\nJangan tempelkan nilai ini ke dalam berkas kode.")
         sys.exit(0)
     main()
