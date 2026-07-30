@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDX Screener</title>
+<style>
+:root{
+  --bg:#F4F5F8; --card:#FFF; --line:#DDE0E8; --line2:#EBEDF2;
+  --text:#1A1E2B; --muted:#5C6478; --faint:#8A91A3;
+  --accent:#8A6115; --accent2:#C08A2E; --accent-bg:rgba(192,138,46,.12);
+  --pos:#1F7A52; --neg:#B03844; --pos-bg:rgba(31,122,82,.11); --neg-bg:rgba(176,56,68,.11);
+  --grid:rgba(26,30,43,.07);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0C0F19; --card:#161A27; --line:#262C3D; --line2:#1E2331;
+    --text:#E6E9F2; --muted:#98A0B4; --faint:#6B7387;
+    --accent:#D9A245; --accent2:#C08A2E; --accent-bg:rgba(217,162,69,.14);
+    --pos:#3FA97B; --neg:#DC5B66; --pos-bg:rgba(63,169,123,.14); --neg-bg:rgba(220,91,102,.14);
+    --grid:rgba(230,233,242,.07);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5}
+.num{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer;color:inherit}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+
+/* top bar */
+.top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+.top-in{display:flex;align-items:center;gap:20px;padding:11px 20px;flex-wrap:wrap}
+.logo{font-weight:700;letter-spacing:-.02em}
+.logo b{color:var(--accent)}
+.stat{display:flex;flex-direction:column;line-height:1.25}
+.stat .l{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.stat .v{font-size:15px;font-weight:700}
+.chip{padding:4px 10px;border-radius:2px;font-size:11px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;display:inline-flex;align-items:center;gap:7px}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.off{background:var(--neg-bg);color:var(--neg)}
+.chip.on{background:var(--pos-bg);color:var(--pos)}
+.spacer{margin-left:auto}
+.btn{background:var(--accent-bg);color:var(--accent);border:1px solid transparent;
+  padding:7px 14px;border-radius:2px;font-weight:600;font-size:13px}
+.btn:hover{border-color:var(--accent2)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+
+.wrap{padding:18px 20px 60px;max-width:1600px;margin:0 auto}
+.sec-title{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 10px}
+
+/* setup cards */
+.setups{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:10px;margin-bottom:22px}
+.scard{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:12px 14px;
+  cursor:pointer;transition:border-color .12s,transform .12s;text-align:left;width:100%}
+.scard:hover{border-color:var(--accent2)}
+.scard.active{border-color:var(--accent);background:var(--accent-bg)}
+.scard .h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.scard .n{font-weight:700;font-size:13.5px}
+.scard .c{font-size:19px;font-weight:700}
+.scard .d{font-size:11px;color:var(--faint);margin-top:3px;line-height:1.35}
+.scard .e{font-size:10.5px;margin-top:7px;padding-top:6px;border-top:1px solid var(--line2);color:var(--muted)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.dot.kuat{background:var(--pos)} .dot.sedang{background:var(--accent2)} .dot.lemah{background:var(--faint)}
+
+/* layout */
+.cols{display:grid;grid-template-columns:250px 1fr;gap:18px;align-items:start}
+@media(max-width:1100px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:3px}
+.panel .ph{padding:11px 14px;border-bottom:1px solid var(--line);font-size:11px;font-weight:700;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+
+/* filters */
+.f{padding:12px 14px;display:grid;gap:12px}
+.f label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-weight:600}
+.f input[type=range]{width:100%;accent-color:var(--accent)}
+.f select,.f input[type=text]{width:100%;padding:6px 8px;background:var(--bg);color:var(--text);
+  border:1px solid var(--line);border-radius:2px;font:inherit;font-size:13px}
+.f .row{display:flex;align-items:center;gap:8px;font-size:13px}
+.f .val{font-weight:700;color:var(--accent)}
+
+/* sector list */
+.slist{max-height:340px;overflow-y:auto}
+.srow{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line2);
+  cursor:pointer;font-size:13px;align-items:center}
+.srow:hover{background:var(--accent-bg)}
+.srow.active{background:var(--accent-bg);box-shadow:inset 3px 0 0 var(--accent)}
+.srow .sn{font-weight:600}
+.srow .sm{font-size:10.5px;color:var(--faint)}
+
+/* table */
+.twrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:var(--card);text-align:right;padding:9px 10px;font-size:10px;
+  font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+  border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;z-index:5}
+th:hover{color:var(--accent)}
+th.l,td.l{text-align:left}
+th.sorted{color:var(--accent)}
+td{padding:8px 10px;border-bottom:1px solid var(--line2);text-align:right;white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--accent-bg)}
+tbody tr.sel{background:var(--accent-bg);box-shadow:inset 3px 0 0 var(--accent)}
+.tk{font-weight:700;letter-spacing:-.01em}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:2px;
+  margin-right:3px;background:var(--grid);color:var(--muted)}
+.badge.kuat{background:var(--pos-bg);color:var(--pos)}
+.badge.sedang{background:var(--accent-bg);color:var(--accent)}
+.ma200{display:inline-block;width:7px;height:7px;border-radius:50%}
+.empty{padding:44px 20px;text-align:center;color:var(--faint)}
+
+/* detail drawer */
+.drawer{position:fixed;inset:0 0 0 auto;width:min(760px,94vw);background:var(--card);
+  border-left:1px solid var(--line);transform:translateX(100%);transition:transform .22s ease;
+  z-index:40;display:flex;flex-direction:column;box-shadow:-14px 0 40px -20px rgba(0,0,0,.5)}
+.drawer.open{transform:translateX(0)}
+.dh{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.dh .t{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.dbody{padding:16px 18px;overflow-y:auto;flex:1}
+.ivs{display:flex;gap:6px}
+.iv{padding:5px 11px;border:1px solid var(--line);border-radius:2px;font-size:12px;background:transparent}
+.iv.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:700}
+canvas{width:100%;display:block;border:1px solid var(--line);border-radius:2px;background:var(--bg)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:2px;margin-top:14px}
+.kv>div{background:var(--card);padding:9px 11px}
+.kv .k{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.kv .v{font-size:16px;font-weight:700;margin-top:2px}
+.note{font-size:12px;color:var(--faint);margin-top:14px;line-height:1.55}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;
+  transition:opacity .22s;z-index:35}
+.scrim.on{opacity:1;pointer-events:auto}
+.tabs{display:flex;gap:2px;background:var(--bg);border:1px solid var(--line);border-radius:2px;padding:2px}
+.tab{background:transparent;border:0;padding:5px 13px;border-radius:2px;font-size:12px;
+  font-weight:600;color:var(--muted);letter-spacing:0;text-transform:none}
+.tab.active{background:var(--accent-bg);color:var(--accent)}
+.snote{padding:9px 14px;background:var(--neg-bg);color:var(--neg);font-size:12px;
+  border-bottom:1px solid var(--line);line-height:1.5}
+.lbl{font-size:10px;font-weight:700;padding:2px 7px;border-radius:2px;white-space:nowrap}
+.lbl.kuat{background:var(--pos-bg);color:var(--pos)}
+.lbl.vwap{background:var(--accent-bg);color:var(--accent)}
+.lbl.bahaya{background:var(--neg-bg);color:var(--neg)}
+.lbl.netral{background:var(--grid);color:var(--muted)}
+.lvl{margin-top:18px;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.lvl h3{margin:0;padding:9px 13px;font-size:10.5px;font-weight:700;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--line);background:var(--bg)}
+.lrow{display:grid;grid-template-columns:52px 1fr auto;gap:10px;padding:6px 13px;
+  border-bottom:1px solid var(--line2);font-size:13px;align-items:center}
+.lrow:last-child{border-bottom:0}
+.lrow .lk{font-weight:700;font-size:12px}
+.lrow .lv{text-align:right}
+.lrow .lm{font-size:11px;color:var(--faint)}
+.lrow.now{background:var(--accent-bg);font-weight:700}
+.lrow.past{opacity:.55}
+.lrow.tp{background:var(--pos-bg)}
+.lrow.sl{background:var(--neg-bg)}
+.lwarn{padding:9px 13px;font-size:12px;color:var(--neg);background:var(--neg-bg);
+  border-top:1px solid var(--line);line-height:1.5}
+.load{padding:60px 20px;text-align:center;color:var(--muted)}
+.bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:12px;max-width:340px;
+  margin-left:auto;margin-right:auto}
+.bar>i{display:block;height:100%;background:var(--accent);transition:width .3s}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-in">
+    <div class="logo">IDX <b>Screener</b></div>
+    <div id="mkt" class="chip off">memuat</div>
+    <div class="stat"><span class="l">IHSG</span><span class="v num" id="ihsg">—</span></div>
+    <div class="stat"><span class="l">vs MA200</span><span class="v num" id="vsma">—</span></div>
+    <div class="stat"><span class="l">Breadth MA200</span><span class="v num" id="breadth">—</span></div>
+    <div class="stat"><span class="l">Emiten likuid</span><span class="v num" id="nliq">—</span></div>
+    <div class="stat"><span class="l">Punya sinyal</span><span class="v num" id="nsig">—</span></div>
+    <div class="spacer"></div>
+    <div class="stat" style="text-align:right"><span class="l">Data</span>
+      <span class="v num" style="font-size:12px;font-weight:600" id="asof">—</span></div>
+    <button class="btn" id="refresh">Refresh data</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="boot" class="load">
+    <div id="bootmsg">Memuat data pasar…</div>
+    <div class="bar"><i id="bootbar" style="width:0%"></i></div>
+  </div>
+
+  <div id="main" style="display:none">
+    <p class="sec-title">Setup aktif — klik untuk memfilter</p>
+    <div class="setups" id="setups"></div>
+
+    <div class="cols">
+      <div style="display:grid;gap:18px">
+        <div class="panel">
+          <div class="ph">Filter</div>
+          <div class="f">
+            <div>
+              <label>Turnover minimum <span class="val" id="ltv">5</span> M/hari</label>
+              <input type="range" id="ftv" min="0" max="100" step="1" value="5">
+            </div>
+            <div>
+              <label>Skor momentum minimum <span class="val" id="lsk">0</span></label>
+              <input type="range" id="fsk" min="0" max="95" step="5" value="0">
+            </div>
+            <div class="row">
+              <input type="checkbox" id="fma" style="accent-color:var(--accent)">
+              <label for="fma" style="margin:0">Hanya di atas MA200</label>
+            </div>
+            <div>
+              <label>Cari ticker</label>
+              <input type="text" id="fq" placeholder="mis. BFIN">
+            </div>
+            <button class="btn ghost" id="reset">Reset semua filter</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph">Sektor — klik untuk memfilter</div>
+          <div class="slist" id="sectors"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div class="tabs">
+            <button class="tab active" data-m="harian">Harian · swing</button>
+            <button class="tab" data-m="scalping">Scalping · intraday</button>
+          </div>
+          <span id="thead" style="font-weight:700"></span>
+          <span class="spacer"></span>
+          <span id="provinfo" style="text-transform:none;letter-spacing:0;font-weight:400;
+            font-size:11px;color:var(--faint)"></span>
+        </div>
+        <div id="scalpnote" class="snote" style="display:none"></div>
+        <div class="twrap"><table>
+          <thead><tr id="cols"></tr></thead>
+          <tbody id="rows"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="drawer">
+  <div class="dh">
+    <div><div class="t" id="dtk">—</div><div style="font-size:12px;color:var(--faint)" id="dsec"></div></div>
+    <div class="spacer"></div>
+    <div class="ivs" id="ivs"></div>
+    <button class="btn ghost" id="dclose">Tutup</button>
+  </div>
+  <div class="dbody">
+    <canvas id="cv" height="330"></canvas>
+    <div class="kv" id="dkv"></div>
+    <div class="note" id="dnote"></div>
+    <div id="dlevels"></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = {mode:"harian", setup:"", sector:"", minTv:5, minSk:0, ma200:false, q:"",
+               sort:"skor", dir:-1, rows:[], sel:null, interval:"1d", range:"6mo"};
+
+const COLS = [
+  ["ticker","Ticker","l"], ["sektor","Sektor","l"], ["close","Harga"], ["skor","Skor"],
+  ["ret_1m","1 bln"], ["ret_3m","3 bln"], ["ret_6m","6 bln"], ["ret_12m","12 bln"],
+  ["from_hi","Dari puncak"], ["rsi","RSI"], ["adx","ADX"], ["atr_pct","ATR%"],
+  ["vol_ratio","Vol x"], ["turnover_M","Turnover M"], ["setups","Setup","l"]
+];
+
+const SCALP_COLS = [
+  ["ticker","Ticker","l"], ["harga","Harga"], ["skor","Skor"], ["label","Sinyal","l"],
+  ["ret_sesi","Sesi %"], ["vs_vwap","vs VWAP"], ["posisi_range","Pos range"],
+  ["rvol","RVol"], ["range_pct","Range %"], ["biaya_putaran","Biaya putaran %"],
+  ["tick_untuk_bep","Tick BEP"], ["peluang","Peluang"], ["ara_head","Sisa ARA %"]
+];
+const LBL_CLASS = {"MOMENTUM KUAT":"kuat","DI ATAS VWAP":"vwap","MENTOK ARA":"bahaya",
+  "GESEKAN TINGGI":"bahaya","DI BAWAH VWAP":"bahaya","NETRAL":"netral"};
+
+const fmt = (v,d=1) => v===null||v===undefined ? "—" : (v>0?"+":"")+v.toFixed(d)+"%";
+const cls = v => v===null||v===undefined ? "" : (v>0?"pos":v<0?"neg":"");
+const rp = v => v===null?"—":v.toLocaleString("id-ID");
+
+/* ---------- status ---------- */
+async function loadStatus(){
+  const s = await (await fetch("/api/status")).json();
+  const m = $("#mkt");
+  m.textContent = s.market.label;
+  m.className = "chip " + (s.market.state==="open" ? "on" : "off");
+
+  if(!s.siap){
+    $("#bootmsg").textContent = s.status || "Memuat…";
+    const p = s.progress && s.progress.total ? s.progress.done/s.progress.total*100 : 0;
+    $("#bootbar").style.width = p.toFixed(0)+"%";
+    setTimeout(loadStatus, 1200);
+    return;
+  }
+  $("#boot").style.display="none"; $("#main").style.display="block";
+  $("#ihsg").textContent = rp(s.ihsg.level);
+  const v = $("#vsma"); v.textContent = fmt(s.ihsg.vs_ma200); v.className = "v num "+cls(s.ihsg.vs_ma200);
+  $("#breadth").textContent = s.breadth_ma200.toFixed(1)+"%";
+  $("#nliq").textContent = s.n_likuid;
+  $("#nsig").textContent = s.n_sinyal;
+  $("#asof").textContent = s.tanggal_data;
+  $("#refresh").disabled = false;
+  $("#refresh").textContent = "Refresh data";
+}
+
+/* ---------- setups ---------- */
+async function loadSetups(){
+  const d = await (await fetch("/api/setups")).json();
+  $("#setups").innerHTML = d.rows.map(r=>`
+    <button class="scard ${state.setup===r.key?"active":""}" data-k="${r.key}">
+      <div class="h"><span class="n"><span class="dot ${r.strength}"></span>${r.label}</span>
+        <span class="c" style="color:${r.n?"var(--accent)":"var(--faint)"}">${r.n}</span></div>
+      <div class="d">${r.desc}</div>
+      <div class="e">${r.unreliable
+        ? `<span style="color:var(--neg)">Edge +${r.edge.toFixed(2)}% ${
+             r.ev_n < 200
+               ? `dari hanya ${r.ev_n} sinyal — sampel terlalu kecil`
+               : `dari ${r.ev_n.toLocaleString("id-ID")} sinyal tapi t=${r.ev_t} — tidak signifikan`
+           }, jangan dijadikan dasar</span>`
+        : `Edge 21 hari <b>+${r.edge.toFixed(2)}%</b> dari ${r.ev_n.toLocaleString("id-ID")} sinyal
+           (t=${r.ev_t})`}${r.tickers.length?"<br>"+r.tickers.slice(0,4).join(", "):""}</div>
+    </button>`).join("");
+  document.querySelectorAll(".scard").forEach(b=>b.onclick=()=>{
+    state.setup = state.setup===b.dataset.k ? "" : b.dataset.k;
+    loadSetups(); loadScreen();
+  });
+}
+
+/* ---------- sectors ---------- */
+async function loadSectors(){
+  const d = await (await fetch("/api/sectors")).json();
+  $("#sectors").innerHTML = d.rows.map(r=>`
+    <div class="srow ${state.sector===r.sektor?"active":""}" data-s="${r.sektor}">
+      <div><div class="sn">${r.sektor}</div>
+        <div class="sm">${r.n} emiten · ${r.above_ma200}% di atas MA200 · ${r.n_sinyal} sinyal</div></div>
+      <div style="text-align:right">
+        <div class="num ${cls(r.ret_1m)}" style="font-weight:700">${fmt(r.ret_1m)}</div>
+        <div class="sm num">3b ${fmt(r.ret_3m)}</div></div>
+    </div>`).join("");
+  document.querySelectorAll(".srow").forEach(b=>b.onclick=()=>{
+    state.sector = state.sector===b.dataset.s ? "" : b.dataset.s;
+    loadSectors(); loadScreen();
+  });
+}
+
+/* ---------- table ---------- */
+function activeCols(){ return state.mode==="scalping" ? SCALP_COLS : COLS; }
+
+function renderCols(){
+  $("#cols").innerHTML = activeCols().map(([k,l,a])=>
+    `<th class="${a||""} ${state.sort===k?"sorted":""}" data-k="${k}">${l}${state.sort===k?(state.dir<0?" ▾":" ▴"):""}</th>`
+  ).join("");
+  document.querySelectorAll("#cols th").forEach(th=>th.onclick=()=>{
+    const k = th.dataset.k;
+    if(k==="setups") return;
+    if(state.sort===k) state.dir*=-1; else {state.sort=k; state.dir=-1;}
+    renderCols(); renderRows();
+  });
+}
+
+function renderScalp(){
+  let rows = state.rows.slice();
+  if(state.q) rows = rows.filter(r=>r.ticker.includes(state.q.toUpperCase()));
+  const k=state.sort, d=state.dir;
+  rows.sort((a,b)=>{
+    let x=a[k], y=b[k];
+    if(typeof x==="string") return String(x).localeCompare(String(y))*d*-1;
+    if(x===null||x===undefined) return 1; if(y===null||y===undefined) return -1;
+    return (x-y)*d;
+  });
+  if(!rows.length){
+    $("#rows").innerHTML = `<tr><td colspan="13" class="empty">
+      Tidak ada data intraday. Bursa mungkin belum buka, atau penyedia data tidak merespons.</td></tr>`;
+    return;
+  }
+  const n = v => v===null||v===undefined ? "—" : v;
+  $("#rows").innerHTML = rows.map(r=>`
+    <tr data-t="${r.ticker}" class="${state.sel===r.ticker?"sel":""}">
+      <td class="l"><span class="tk">${r.ticker}</span></td>
+      <td class="num">${rp(r.harga)}</td>
+      <td class="num" style="font-weight:700;color:var(--accent)">${r.skor?.toFixed(0)??"—"}</td>
+      <td class="l"><span class="lbl ${LBL_CLASS[r.label]||"netral"}">${r.label}</span></td>
+      <td class="num ${cls(r.ret_sesi)}">${fmt(r.ret_sesi,2)}</td>
+      <td class="num ${cls(r.vs_vwap)}">${fmt(r.vs_vwap,2)}</td>
+      <td class="num">${n(r.posisi_range)}${r.posisi_range!=null?"%":""}</td>
+      <td class="num" style="${(r.rvol||0)>1.5?"color:var(--pos);font-weight:700":""}">${r.rvol?.toFixed(2)??"—"}</td>
+      <td class="num">${r.range_pct?.toFixed(2)??"—"}%</td>
+      <td class="num" style="${r.biaya_putaran>1?"color:var(--neg);font-weight:700":""}">${r.biaya_putaran?.toFixed(2)??"—"}%</td>
+      <td class="num">${n(r.tick_untuk_bep)}</td>
+      <td class="num" style="${(r.peluang||0)<2?"color:var(--neg)":""}">${r.peluang?.toFixed(1)??"—"}x</td>
+      <td class="num" style="${(r.ara_head!=null&&r.ara_head<5)?"color:var(--neg);font-weight:700":""}">${r.ara_head?.toFixed(1)??"—"}</td>
+    </tr>`).join("");
+  document.querySelectorAll("#rows tr[data-t]").forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.t));
+  $("#thead").textContent = `${rows.length} emiten dipindai intraday`;
+}
+
+async function loadScalping(){
+  $("#rows").innerHTML = `<tr><td colspan="13" class="empty">Menarik bar intraday…</td></tr>`;
+  const d = await (await fetch("/api/scalping?top=40&interval=5m")).json();
+  state.rows = d.rows || [];
+  $("#provinfo").textContent = `${d.penyedia||"—"} · ${d.interval||"—"} · `
+    + `${d.dipindai||0} disaring → ${d.digali||0} digali dalam ${d.detik??"?"}s (${d.metode||"—"})`;
+  const note = $("#scalpnote");
+  if(d.catatan){ note.textContent = d.catatan; note.style.display="block"; }
+  else note.style.display="none";
+  renderScalp();
+}
+
+function renderRows(){
+  if(state.mode==="scalping") return renderScalp();
+  let rows = state.rows.slice();
+  if(state.q) rows = rows.filter(r=>r.ticker.includes(state.q.toUpperCase()));
+  const k = state.sort, d = state.dir;
+  rows.sort((a,b)=>{
+    let x=a[k], y=b[k];
+    if(typeof x==="string") return x.localeCompare(y)*d*-1;
+    if(x===null) return 1; if(y===null) return -1;
+    return (x-y)*d;
+  });
+  if(!rows.length){ $("#rows").innerHTML = `<tr><td colspan="15" class="empty">Tidak ada emiten yang cocok dengan filter ini.</td></tr>`; return; }
+  $("#rows").innerHTML = rows.map(r=>`
+    <tr data-t="${r.ticker}" class="${state.sel===r.ticker?"sel":""}">
+      <td class="l"><span class="ma200" style="background:${r.di_atas_ma200?"var(--pos)":"var(--neg)"}"></span>
+        <span class="tk">${r.ticker}</span></td>
+      <td class="l" style="color:var(--muted);font-size:12px">${r.sektor}</td>
+      <td class="num">${rp(r.close)}</td>
+      <td class="num" style="font-weight:700;color:var(--accent)">${r.skor.toFixed(0)}</td>
+      <td class="num ${cls(r.ret_1m)}">${fmt(r.ret_1m)}</td>
+      <td class="num ${cls(r.ret_3m)}">${fmt(r.ret_3m)}</td>
+      <td class="num ${cls(r.ret_6m)}">${fmt(r.ret_6m)}</td>
+      <td class="num ${cls(r.ret_12m)}">${fmt(r.ret_12m)}</td>
+      <td class="num ${cls(r.from_hi)}">${fmt(r.from_hi)}</td>
+      <td class="num">${r.rsi??"—"}</td>
+      <td class="num">${r.adx??"—"}</td>
+      <td class="num">${r.atr_pct?.toFixed(1)??"—"}</td>
+      <td class="num">${r.vol_ratio?.toFixed(2)??"—"}</td>
+      <td class="num">${r.turnover_M?.toFixed(1)??"—"}</td>
+      <td class="l">${r.setups.map(s=>{
+          const st = s==="BaseBreakout"?"kuat":(s==="SqueezeBreakout"||s==="TrendTemplate")?"sedang":"";
+          return `<span class="badge ${st}">${s.replace(/([A-Z])/g," $1").trim().split(" ").map(w=>w.slice(0,4)).join("")}</span>`;
+        }).join("")||"—"}</td>
+    </tr>`).join("");
+  document.querySelectorAll("#rows tr[data-t]").forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.t));
+  $("#thead").textContent = `Hasil pemindaian — ${rows.length} emiten`
+    + (state.setup?` · setup ${state.setup}`:"") + (state.sector?` · ${state.sector}`:"");
+}
+
+async function loadScreen(){
+  const p = new URLSearchParams({setup:state.setup, sector:state.sector,
+    min_skor:state.minSk, min_turnover:state.minTv, only_above_ma200:state.ma200});
+  const d = await (await fetch("/api/screen?"+p)).json();
+  state.rows = d.rows; renderRows();
+}
+
+/* ---------- chart ---------- */
+function drawChart(d){
+  const cv = $("#cv"), dpr = window.devicePixelRatio||1;
+  const w = cv.clientWidth, h = 330;
+  cv.width = w*dpr; cv.height = h*dpr;
+  const g = cv.getContext("2d"); g.scale(dpr,dpr); g.clearRect(0,0,w,h);
+  if(!d.c || !d.c.length){ g.fillStyle="#888"; g.fillText("data tidak tersedia",20,40); return; }
+
+  const css = getComputedStyle(document.body);
+  const C = n => css.getPropertyValue(n).trim();
+  const PL=52, PR=10, PT=12, PB=54, VH=46;
+  const iw = w-PL-PR, ih = h-PT-PB;
+
+  const lows=d.l.filter(x=>x!=null), highs=d.h.filter(x=>x!=null);
+  let lo=Math.min(...lows), hi=Math.max(...highs);
+  const pad=(hi-lo)*0.06||1; lo-=pad; hi+=pad;
+  const X=i=>PL+iw*i/(d.c.length-1||1), Y=v=>PT+ih*(1-(v-lo)/(hi-lo));
+
+  // grid + label harga
+  g.strokeStyle=C("--grid"); g.lineWidth=1; g.font="10px ui-monospace,Consolas,monospace";
+  g.fillStyle=C("--faint"); g.textAlign="right";
+  for(let i=0;i<=4;i++){
+    const v=lo+(hi-lo)*i/4, y=Y(v);
+    g.beginPath(); g.moveTo(PL,y); g.lineTo(w-PR,y); g.stroke();
+    g.fillText(Math.round(v).toLocaleString("id-ID"), PL-7, y+3);
+  }
+
+  // volume
+  const vmax=Math.max(...d.v.filter(x=>x!=null))||1;
+  d.v.forEach((v,i)=>{ if(v==null) return;
+    const bh=VH*v/vmax, up=i>0&&d.c[i]>=d.c[i-1];
+    g.fillStyle = up ? C("--pos-bg") : C("--neg-bg");
+    g.fillRect(X(i)-Math.max(1,iw/d.c.length*0.34), h-PB+14+(VH-bh), Math.max(1.4,iw/d.c.length*0.68), bh);
+  });
+
+  // candle
+  const bw=Math.max(1.2, iw/d.c.length*0.62);
+  for(let i=0;i<d.c.length;i++){
+    if(d.c[i]==null) continue;
+    const up=d.c[i]>=d.o[i], col=up?C("--pos"):C("--neg");
+    g.strokeStyle=col; g.fillStyle=col; g.lineWidth=1;
+    g.beginPath(); g.moveTo(X(i),Y(d.h[i])); g.lineTo(X(i),Y(d.l[i])); g.stroke();
+    const y1=Y(d.o[i]), y2=Y(d.c[i]);
+    g.fillRect(X(i)-bw/2, Math.min(y1,y2), bw, Math.max(1,Math.abs(y2-y1)));
+  }
+
+  // MA
+  const line=(arr,col,lw)=>{
+    g.strokeStyle=col; g.lineWidth=lw; g.beginPath(); let st=false;
+    arr.forEach((v,i)=>{ if(v==null){st=false;return;}
+      if(!st){g.moveTo(X(i),Y(v));st=true;} else g.lineTo(X(i),Y(v)); });
+    g.stroke();
+  };
+  if(d.ma20?.length) line(d.ma20, C("--muted"), 1);
+  if(d.ma50?.length) line(d.ma50, C("--accent2"), 1.4);
+  if(d.ma200?.length) line(d.ma200, C("--accent"), 2);
+
+  // label waktu
+  g.fillStyle=C("--faint"); g.textAlign="center";
+  [0, Math.floor(d.t.length/2), d.t.length-1].forEach(i=>{
+    if(d.t[i]) g.fillText(d.t[i], X(i), h-PB+8);
+  });
+  // legenda
+  g.textAlign="left"; g.fillStyle=C("--muted"); g.font="10px ui-monospace,Consolas,monospace";
+  g.fillText("MA20", PL+4, PT+11);
+  g.fillStyle=C("--accent2"); g.fillText("MA50", PL+42, PT+11);
+  g.fillStyle=C("--accent"); g.fillText("MA200", PL+80, PT+11);
+}
+
+async function openDetail(tk){
+  state.sel=tk; renderRows();
+  $("#drawer").classList.add("open"); $("#scrim").classList.add("on");
+  $("#dtk").textContent=tk;
+  const row = state.rows.find(r=>r.ticker===tk);
+  const kv = (arr)=>arr.map(([k,v])=>`<div><div class="k">${k}</div><div class="v num">${v}</div></div>`).join("");
+
+  if(row && state.mode==="scalping"){
+    $("#dsec").textContent = "mode scalping · intraday";
+    $("#dkv").innerHTML = kv([
+      ["Harga", rp(row.harga)], ["Skor", row.skor?.toFixed(0)??"—"],
+      ["Sesi", fmt(row.ret_sesi,2)], ["vs VWAP", fmt(row.vs_vwap,2)],
+      ["VWAP", rp(row.vwap)], ["RVol", (row.rvol?.toFixed(2)??"—")+"x"],
+      ["Range hari", (row.range_pct?.toFixed(2)??"—")+"%"],
+      ["Sisa ARA", (row.ara_head?.toFixed(1)??"—")+"%"]
+    ]);
+    const layak = row.peluang >= 2;
+    $("#dnote").innerHTML =
+      `Fraksi harga <b>Rp${row.tick}</b> = <b>${row.tick_pct?.toFixed(3)}%</b> per tick.
+       Biaya sekali putar (komisi 0,40% + silang spread) = <b>${row.biaya_putaran?.toFixed(2)}%</b>,
+       jadi butuh minimal <b>${row.tick_untuk_bep} tick</b> hanya untuk balik modal.
+       Rentang harian ${row.range_pct?.toFixed(2)}% menutup biaya itu
+       <b>${row.peluang?.toFixed(1)}x</b> — ${layak
+         ? "cukup untuk memberi ruang scalping."
+         : `<span style="color:var(--neg)">terlalu tipis; gesekan memakan sebagian besar gerak.</span>`}
+       ${row.ara_head!=null && row.ara_head<5
+         ? `<br><span style="color:var(--neg)">Hanya ${row.ara_head.toFixed(1)}% tersisa sebelum ARA
+            — ruang naik hampir habis dan risiko tersangkut antrean tinggi.</span>` : ""}`;
+    state.interval="5m"; state.range="1d";
+  } else if(row){
+    $("#dsec").textContent = row.sektor || "";
+    $("#dkv").innerHTML = kv([
+      ["Harga", rp(row.close)], ["Skor", row.skor.toFixed(0)],
+      ["Dari puncak", fmt(row.from_hi)], ["RSI(14)", row.rsi??"—"],
+      ["ADX(14)", row.adx??"—"], ["ATR harian", (row.atr_pct?.toFixed(1)??"—")+"%"],
+      ["Volume vs MA20", (row.vol_ratio?.toFixed(2)??"—")+"x"],
+      ["Turnover", (row.turnover_M?.toFixed(1)??"—")+" M"]
+    ]);
+    $("#dnote").innerHTML = row.setups.length
+      ? `Setup aktif: <b>${row.setups.join(", ")}</b>. Edge historis terbaik dari setup ini
+         <b>+${row.edge.toFixed(2)}%</b> rata-rata dalam 21 hari bursa (event study 5 tahun,
+         sudah dipotong biaya 0,70%). Hit rate setup terkuat hanya 43% — profil ekor kanan gemuk,
+         bukan sistem yang sering benar.`
+      : `Tidak ada setup aktif pada emiten ini hari ini.`;
+    state.interval="1d"; state.range="6mo";
+  }
+  renderIvs();
+  $("#dlevels").innerHTML = "";
+  const d = await (await fetch(`/api/chart/${tk}?rng=${state.range}&interval=${state.interval}`)).json();
+  drawChart(d); window.__last=d;
+  renderLevels(tk);
+}
+
+async function renderLevels(tk){
+  const a = await (await fetch(`/api/levels/${tk}`)).json();
+  if(!a || a.error || !a.pivot){ $("#dlevels").innerHTML=""; return; }
+  const px = a.harga, p = a.pivot, r = a.rencana || {};
+  const rp = v => v==null ? "—" : Number(v).toLocaleString("id-ID");
+
+  const order = ["R3","R2","R1","PP","S1","S2","S3"];
+  const dilewati = ["R1","R2","R3"].filter(k => p[k] < px).length;
+  let pivHtml = order.map(k=>{
+    const v = p[k];
+    const past = (k[0]==="R" && v < px) || (k[0]==="S" && v > px);
+    const note = past ? (k[0]==="R" ? "sudah dilewati → jadi support" : "di atas harga") : "";
+    return `<div class="lrow ${past?"past":""}">
+      <span class="lk">${k}</span><span class="lm">${note}</span>
+      <span class="lv num">${rp(v)}</span></div>`;
+  }).join("");
+
+  let tpHtml = "";
+  if(r.tp){
+    tpHtml = `<div class="lrow sl"><span class="lk">SL</span>
+        <span class="lm">−${r.risiko_pct}% · dasar ${r.dasar_sl}</span>
+        <span class="lv num">${rp(r.sl)}</span></div>`
+      + `<div class="lrow now"><span class="lk">Entry</span>
+        <span class="lm">tick Rp${r.tick}</span>
+        <span class="lv num">${rp(r.entry)}</span></div>`
+      + r.tp.map(t=>`<div class="lrow tp ${t.di_atas_ara?"past":""}">
+          <span class="lk">${t.nama}</span>
+          <span class="lm">+${t.gain_pct}% · RR ${t.rr}${t.di_atas_ara?" · di atas ARA":""}</span>
+          <span class="lv num">${rp(t.level)}</span></div>`).join("")
+      + (r.batas_ara?`<div class="lrow"><span class="lk">ARA</span>
+          <span class="lm">batas atas hari ini</span>
+          <span class="lv num">${rp(r.batas_ara)}</span></div>`:"");
+  }
+
+  const sw = a.swing || {};
+  const swHtml = (sw.resistance?.length || sw.support?.length)
+    ? `<div class="lrow"><span class="lk">R</span><span class="lm">swing teruji</span>
+        <span class="lv num">${(sw.resistance||[]).map(rp).join(" · ")||"—"}</span></div>
+       <div class="lrow"><span class="lk">S</span><span class="lm">swing teruji</span>
+        <span class="lv num">${(sw.support||[]).map(rp).join(" · ")||"—"}</span></div>` : "";
+
+  let warn = "";
+  if(dilewati===3) warn += `Harga di atas seluruh pivot resistance — pivot harian tidak
+    lagi memberi target ke atas. Pakai swing S/R.`;
+  if(r.semua_tp_di_atas_ara) warn += `${warn?"<br>":""}Semua TP di atas batas ARA —
+    target hanya bisa dicapai lintas hari, bukan intraday.`;
+
+  $("#dlevels").innerHTML = `
+    <div class="lvl"><h3>Pivot harian (${a.metode_pivot})</h3>${pivHtml}
+      ${warn?`<div class="lwarn">${warn}</div>`:""}</div>
+    ${tpHtml?`<div class="lvl"><h3>Rencana trade · ATR ${a.atr}</h3>${tpHtml}</div>`:""}
+    ${swHtml?`<div class="lvl"><h3>Support / resistance swing</h3>${swHtml}</div>`:""}`;
+}
+
+function renderIvs(){
+  const opts=[["1d","6mo","Harian 6b"],["1d","2y","Harian 2th"],["15m","5d","15 menit"],["5m","1d","5 menit"]];
+  $("#ivs").innerHTML = opts.map(([iv,rg,l])=>
+    `<button class="iv ${state.interval===iv&&state.range===rg?"active":""}" data-iv="${iv}" data-rg="${rg}">${l}</button>`).join("");
+  document.querySelectorAll(".iv").forEach(b=>b.onclick=async()=>{
+    state.interval=b.dataset.iv; state.range=b.dataset.rg; renderIvs();
+    const d=await (await fetch(`/api/chart/${state.sel}?rng=${state.range}&interval=${state.interval}`)).json();
+    drawChart(d); window.__last=d;
+  });
+}
+
+function closeDetail(){
+  $("#drawer").classList.remove("open"); $("#scrim").classList.remove("on");
+  state.sel=null; renderRows();
+}
+$("#dclose").onclick=closeDetail; $("#scrim").onclick=closeDetail;
+addEventListener("keydown",e=>{ if(e.key==="Escape") closeDetail(); });
+addEventListener("resize",()=>{ if(window.__last && $("#drawer").classList.contains("open")) drawChart(window.__last); });
+
+/* ---------- filters ---------- */
+$("#ftv").oninput=e=>{ state.minTv=+e.target.value; $("#ltv").textContent=e.target.value; loadScreen(); };
+$("#fsk").oninput=e=>{ state.minSk=+e.target.value; $("#lsk").textContent=e.target.value; loadScreen(); };
+$("#fma").onchange=e=>{ state.ma200=e.target.checked; loadScreen(); };
+$("#fq").oninput=e=>{ state.q=e.target.value; renderRows(); };
+$("#reset").onclick=()=>{
+  Object.assign(state,{setup:"",sector:"",minTv:5,minSk:0,ma200:false,q:""});
+  $("#ftv").value=5; $("#ltv").textContent="5"; $("#fsk").value=0; $("#lsk").textContent="0";
+  $("#fma").checked=false; $("#fq").value="";
+  loadSetups(); loadSectors(); loadScreen();
+};
+$("#refresh").onclick=async()=>{
+  $("#refresh").disabled=true; $("#refresh").textContent="Menarik data…";
+  await fetch("/api/refresh?full=true",{method:"POST"});
+  const poll=setInterval(async()=>{
+    const s=await (await fetch("/api/status")).json();
+    if(s.siap && s.status==="siap"){ clearInterval(poll);
+      await Promise.all([loadStatus(),loadSetups(),loadSectors(),loadScreen()]); }
+  },1500);
+};
+
+/* ---------- mode tab ---------- */
+document.querySelectorAll(".tab").forEach(b=>b.onclick=async()=>{
+  if(state.mode===b.dataset.m) return;
+  state.mode = b.dataset.m;
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x.dataset.m===state.mode));
+  state.sort = "skor"; state.dir = -1; state.sel = null;
+  renderCols();
+  if(state.mode==="scalping"){ await loadScalping(); }
+  else { $("#scalpnote").style.display="none"; $("#provinfo").textContent=""; await loadScreen(); }
+});
+
+/* ---------- boot ---------- */
+(async function(){
+  renderCols();
+  await loadStatus();
+  if($("#main").style.display!=="none"){
+    await Promise.all([loadSetups(), loadSectors(), loadScreen()]);
+  } else {
+    const t=setInterval(async()=>{
+      await loadStatus();
+      if($("#main").style.display!=="none"){ clearInterval(t);
+        await Promise.all([loadSetups(),loadSectors(),loadScreen()]); }
+    },1500);
+  }
+})();
+</script>
+</body>
+</html>

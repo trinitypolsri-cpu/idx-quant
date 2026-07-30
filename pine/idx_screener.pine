@@ -1,0 +1,175 @@
+//@version=6
+// =============================================================================
+// IDX Multi-Setup Screener — 6 setup kuantitatif dalam satu indikator
+// Pasangan: idxquant/setups.py
+//
+// Cara pakai:
+//  A) Pasang di chart mana pun -> tabel status + label sinyal.
+//  B) Untuk memindai ratusan saham: buat alert "Any alert() function call"
+//     pada watchlist IDX Anda, atau pakai plot `screenerValue` sebagai kolom
+//     di Pine Screener (TradingView > Screener > Pine).
+//
+// Semua kondisi dievaluasi pada bar tertutup (barstate.isconfirmed) sehingga
+// tidak ada repaint.
+// =============================================================================
+
+indicator("IDX Multi-Setup Screener [idxquant]", overlay = true, max_labels_count = 200)
+
+// ----------------------------------------------------------------------------
+// Input
+// ----------------------------------------------------------------------------
+grpF = "Filter Likuiditas IDX"
+minPrice    = input.float(100, "Harga minimum (Rp)",                 group = grpF)
+minTurnover = input.float(5.0, "Median turnover 20 hari (Rp miliar)", group = grpF)
+
+grpS = "Setup Aktif"
+onTemplate = input.bool(true, "Trend Template (Minervini)",  group = grpS)
+onSqueeze  = input.bool(true, "Squeeze Breakout",            group = grpS)
+onBase     = input.bool(true, "Base Breakout 55 hari",       group = grpS)
+onPullback = input.bool(true, "Pullback dalam Uptrend",      group = grpS)
+onMeanRev  = input.bool(true, "Mean Reversion",              group = grpS)
+onRS       = input.bool(true, "RS Leader vs IHSG",           group = grpS)
+
+grpB = "Benchmark"
+benchSym = input.symbol("COMPOSITE", "Benchmark (IHSG)", group = grpB)
+
+showTable = input.bool(true, "Tampilkan tabel", group = "Tampilan")
+
+// ----------------------------------------------------------------------------
+// Indikator dasar
+// ----------------------------------------------------------------------------
+ma20  = ta.sma(close, 20)
+ma50  = ta.sma(close, 50)
+ma150 = ta.sma(close, 150)
+ma200 = ta.sma(close, 200)
+ema21 = ta.ema(close, 21)
+
+rsi14 = ta.rsi(close, 14)
+rsi2  = ta.rsi(close, 2)
+atr14 = ta.atr(14)
+atrPct = atr14 / close
+[diP, diM, adx] = ta.dmi(14, 14)
+
+hi52 = ta.highest(high, 244)
+lo52 = ta.lowest(low, 244)
+fromHigh = (close / hi52 - 1) * 100
+fromLow  = (close / lo52 - 1) * 100
+
+vol20    = ta.sma(volume, 20)
+volRatio = vol20 > 0 ? volume / vol20 : 0.0
+turnover = ta.median(close * volume, 20)
+liquid   = close >= minPrice and turnover >= minTurnover * 1e9
+
+bbBasis = ta.sma(close, 20)
+bbDev   = 2.0 * ta.stdev(close, 20)
+bbUpper = bbBasis + bbDev
+bbLower = bbBasis - bbDev
+bbWidth = (bbUpper - bbLower) / bbBasis * 100
+
+kcBasis = ta.ema(close, 20)
+kcRange = 1.5 * ta.atr(20)
+squeezeOn  = bbLower > kcBasis - kcRange and bbUpper < kcBasis + kcRange
+wasSqueeze = ta.barssince(squeezeOn) <= 10
+
+dc55 = ta.highest(high, 55)[1]
+
+// Kekuatan relatif vs IHSG
+benchClose = request.security(benchSym, timeframe.period, close,
+     lookahead = barmerge.lookahead_off)
+rsLine = benchClose > 0 ? close / benchClose : na
+rsHigh = ta.highest(rsLine, 63)
+
+// ROC multi-horizon -> skor momentum (0-100, relatif terhadap sejarah sendiri)
+roc21  = ta.roc(close, 21)
+roc63  = ta.roc(close, 63)
+roc126 = ta.roc(close, 126)
+roc244 = ta.roc(close, 244)
+momRaw = 0.15 * roc21 + 0.30 * roc63 + 0.35 * roc126 + 0.20 * roc244
+momScore = ta.percentrank(momRaw, 244)
+
+// ----------------------------------------------------------------------------
+// Setup (cermin dari setups.py)
+// ----------------------------------------------------------------------------
+sTemplate = onTemplate and close > ma50 and ma50 > ma150 and ma150 > ma200
+             and ma200 > ma200[21] and fromHigh > -25 and fromLow > 30 and adx > 20
+
+sSqueeze = onSqueeze and wasSqueeze and not squeezeOn and close > bbUpper[1]
+            and volRatio > 1.5 and close > ma50
+
+sBase = onBase and close > dc55 and close > ma200 and volRatio > 1.8 and atrPct < 0.09
+
+sPullback = onPullback and close > ma200 and ma50 > ma200 and low <= ema21 * 1.02
+             and rsi2 < 15 and fromHigh > -20 and adx > 18
+
+sMeanRev = onMeanRev and close > ma200 and close < bbLower and rsi14 < 32
+            and close > close[1]
+
+sRS = onRS and not na(rsLine) and rsLine >= rsHigh * 0.999 and close > ma50
+
+anySignal = liquid and (sTemplate or sSqueeze or sBase or sPullback or sMeanRev or sRS)
+nSignal = (sTemplate ? 1 : 0) + (sSqueeze ? 1 : 0) + (sBase ? 1 : 0)
+        + (sPullback ? 1 : 0) + (sMeanRev ? 1 : 0) + (sRS ? 1 : 0)
+
+// Nilai untuk kolom Pine Screener: skor momentum, negatif jika tidak likuid
+screenerValue = liquid ? momScore + nSignal * 100 : -1
+plot(screenerValue, "ScreenerValue", display = display.data_window)
+plot(momScore, "MomScore", display = display.data_window)
+plot(nSignal, "JumlahSinyal", display = display.data_window)
+
+// ----------------------------------------------------------------------------
+// Visual
+// ----------------------------------------------------------------------------
+plot(ma50,  "MA50",  color.new(color.blue, 30))
+plot(ma200, "MA200", color.new(color.orange, 0), linewidth = 2)
+
+label_txt = (sTemplate ? "TT " : "") + (sSqueeze ? "SQZ " : "") + (sBase ? "BO " : "")
+          + (sPullback ? "PB " : "") + (sMeanRev ? "MR " : "") + (sRS ? "RS" : "")
+
+if anySignal and barstate.isconfirmed
+    label.new(bar_index, low, label_txt, style = label.style_label_up,
+         color = color.new(color.teal, 15), textcolor = color.white, size = size.small)
+
+bgcolor(close > ma200 ? color.new(color.green, 95) : color.new(color.red, 95))
+
+// ----------------------------------------------------------------------------
+// Tabel status
+// ----------------------------------------------------------------------------
+var table t = table.new(position.top_right, 2, 11, border_width = 1)
+
+f_row(i, k, v, ok) =>
+    table.cell(t, 0, i, k, text_size = size.small, text_halign = text.align_left,
+         bgcolor = color.new(color.gray, 85), text_color = color.gray)
+    table.cell(t, 1, i, v, text_size = size.small,
+         bgcolor = ok ? color.new(color.green, 70) : color.new(color.gray, 90),
+         text_color = ok ? color.white : color.silver)
+
+if showTable and barstate.islast
+    table.cell(t, 0, 0, "IDX SCREENER", text_size = size.small,
+         bgcolor = color.new(color.navy, 0), text_color = color.white)
+    table.cell(t, 1, 0, syminfo.ticker, text_size = size.small,
+         bgcolor = color.new(color.navy, 0), text_color = color.white)
+
+    f_row(1,  "Likuid",          liquid ? "YA" : "TIDAK", liquid)
+    f_row(2,  "Turnover (Rp M)", str.tostring(turnover / 1e9, "#.#"), turnover >= minTurnover * 1e9)
+    f_row(3,  "Skor momentum",   str.tostring(momScore, "#"), momScore > 70)
+    f_row(4,  "Dari puncak 52mg",str.tostring(fromHigh, "#.#") + "%", fromHigh > -15)
+    f_row(5,  "ADX(14)",         str.tostring(adx, "#.#"), adx > 20)
+    f_row(6,  "RSI(14)",         str.tostring(rsi14, "#.#"), rsi14 > 50)
+    f_row(7,  "Di atas MA200",   close > ma200 ? "YA" : "TIDAK", close > ma200)
+    f_row(8,  "Lebar BB",        str.tostring(bbWidth, "#.#") + "%", squeezeOn)
+    f_row(9,  "Volume vs MA20",  str.tostring(volRatio, "#.##") + "x", volRatio > 1.5)
+    f_row(10, "Setup aktif",     nSignal > 0 ? label_txt : "-", nSignal > 0)
+
+// ----------------------------------------------------------------------------
+// Alert — satu alert untuk seluruh watchlist
+// ----------------------------------------------------------------------------
+if anySignal and barstate.isconfirmed
+    alert(syminfo.ticker + " | setup: " + label_txt + "| harga " + str.tostring(close)
+         + " | skor " + str.tostring(momScore, "#"), alert.freq_once_per_bar_close)
+
+alertcondition(sTemplate, "Trend Template", "{{ticker}} lolos trend template")
+alertcondition(sBase,     "Base Breakout",  "{{ticker}} breakout basis 55 hari")
+alertcondition(sSqueeze,  "Squeeze Breakout", "{{ticker}} squeeze breakout")
+alertcondition(sPullback, "Pullback",       "{{ticker}} pullback dalam uptrend")
+alertcondition(sMeanRev,  "Mean Reversion", "{{ticker}} mean reversion")
+alertcondition(sRS,       "RS Leader",      "{{ticker}} RS leader vs IHSG")

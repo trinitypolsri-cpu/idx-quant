@@ -1,0 +1,155 @@
+//@version=6
+// =============================================================================
+// IDX Momentum Trend Strategy — versi TradingView dari mesin backtest Python
+// Pasangan: idxquant/backtest.py :: run_rotation()
+//
+// Logika inti (identik dengan Python):
+//   1. Regime filter  : IHSG (COMPOSITE) harus di atas MA200-nya
+//   2. Syarat tren    : Close > MA200, MA50 > MA200
+//   3. Entry momentum : trend template ATAU breakout basis 55 hari
+//   4. Exit           : trailing stop 2.5 x ATR(14), atau tren rusak
+//   5. Biaya          : komisi 0.15% beli / 0.25% jual + slippage
+//
+// Catatan: IDX = long-only, lot 100 lembar, tidak ada short selling ritel.
+// =============================================================================
+
+strategy("IDX Momentum Trend [idxquant]",
+     overlay              = true,
+     initial_capital      = 100000000,          // Rp100 juta
+     default_qty_type     = strategy.percent_of_equity,
+     default_qty_value    = 95,
+     commission_type      = strategy.commission.percent,
+     commission_value     = 0.20,               // rata-rata beli/jual IDX
+     slippage             = 2,                  // tick
+     pyramiding           = 0,
+     calc_on_every_tick   = false,
+     process_orders_on_close = false)           // eksekusi di open bar berikutnya
+
+// ----------------------------------------------------------------------------
+// Input
+// ----------------------------------------------------------------------------
+grpR = "Regime & Tren"
+useRegime  = input.bool(true,  "Pakai regime filter IHSG",      group = grpR)
+benchSym   = input.symbol("COMPOSITE", "Simbol benchmark",      group = grpR)
+regimeLen  = input.int(200, "Panjang MA regime", minval = 50,   group = grpR)
+requireTrend = input.bool(true, "Wajib Close>MA200 & MA50>MA200", group = grpR)
+
+grpE = "Entry"
+useTemplate = input.bool(true, "Setup: Trend Template",         group = grpE)
+useBase     = input.bool(true, "Setup: Base Breakout (55 hari)", group = grpE)
+useSqueeze  = input.bool(false, "Setup: Squeeze Breakout",       group = grpE)
+adxMin      = input.float(20.0, "ADX minimum", minval = 0,      group = grpE)
+volMult     = input.float(1.8, "Volume vs MA20 (breakout)",     group = grpE)
+maxFromHigh = input.float(25.0, "Maks. jarak dari puncak 52mg (%)", group = grpE)
+
+grpX = "Exit & Risiko"
+atrLen      = input.int(14,   "Panjang ATR",                    group = grpX)
+atrStopMult = input.float(2.5, "Trailing stop (x ATR)", step=0.1, group = grpX)
+exitOnTrend = input.bool(true, "Keluar jika Close < MA50",      group = grpX)
+
+grpF = "Filter Likuiditas"
+minPrice    = input.float(100,  "Harga minimum (Rp)",           group = grpF)
+minTurnover = input.float(5.0,  "Median turnover 20h min (Rp miliar)", group = grpF)
+
+// ----------------------------------------------------------------------------
+// Indikator
+// ----------------------------------------------------------------------------
+ma20  = ta.sma(close, 20)
+ma50  = ta.sma(close, 50)
+ma150 = ta.sma(close, 150)
+ma200 = ta.sma(close, 200)
+ema21 = ta.ema(close, 21)
+
+atr    = ta.atr(atrLen)
+[diP, diM, adx] = ta.dmi(14, 14)
+
+hi52 = ta.highest(high, 244)
+lo52 = ta.lowest(low, 244)
+fromHigh = (close / hi52 - 1) * 100
+fromLow  = (close / lo52 - 1) * 100
+
+vol20    = ta.sma(volume, 20)
+volRatio = vol20 > 0 ? volume / vol20 : 0.0
+turnover = ta.median(close * volume, 20)
+
+// Bollinger vs Keltner -> squeeze
+bbBasis = ta.sma(close, 20)
+bbDev   = 2.0 * ta.stdev(close, 20)
+bbUpper = bbBasis + bbDev
+bbLower = bbBasis - bbDev
+kcBasis = ta.ema(close, 20)
+kcRange = 1.5 * ta.atr(20)
+squeezeOn  = bbLower > kcBasis - kcRange and bbUpper < kcBasis + kcRange
+wasSqueeze = ta.barssince(squeezeOn) <= 10
+
+dc55 = ta.highest(high, 55)[1]
+
+// ----------------------------------------------------------------------------
+// Regime filter — IHSG di atas MA200-nya
+// ----------------------------------------------------------------------------
+benchClose = request.security(benchSym, timeframe.period, close,
+     lookahead = barmerge.lookahead_off)
+benchMA = request.security(benchSym, timeframe.period, ta.sma(close, regimeLen),
+     lookahead = barmerge.lookahead_off)
+riskOn = not useRegime or (not na(benchMA) and benchClose > benchMA)
+
+// ----------------------------------------------------------------------------
+// Filter & setup
+// ----------------------------------------------------------------------------
+liquid = close >= minPrice and turnover >= minTurnover * 1e9
+trendOK = not requireTrend or (close > ma200 and ma50 > ma200)
+
+sTemplate = useTemplate and close > ma50 and ma50 > ma150 and ma150 > ma200
+             and ma200 > ma200[21] and fromHigh > -maxFromHigh and fromLow > 30
+             and adx > adxMin
+
+sBase = useBase and close > dc55 and close > ma200 and volRatio > volMult
+         and (atr / close) < 0.09
+
+sSqueeze = useSqueeze and wasSqueeze and not squeezeOn and close > bbUpper[1]
+            and volRatio > 1.5 and close > ma50
+
+entrySignal = liquid and trendOK and riskOn and (sTemplate or sBase or sSqueeze)
+
+// ----------------------------------------------------------------------------
+// Trailing stop berbasis ATR
+// ----------------------------------------------------------------------------
+var float trailStop = na
+float newStop = close - atrStopMult * atr
+if strategy.position_size > 0
+    trailStop := na(trailStop) ? newStop : math.max(trailStop, newStop)
+else
+    trailStop := na
+
+// ----------------------------------------------------------------------------
+// Order
+// ----------------------------------------------------------------------------
+if entrySignal and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+    trailStop := close - atrStopMult * atr
+
+exitTrend  = exitOnTrend and close < ma50
+exitRegime = useRegime and not riskOn
+
+if strategy.position_size > 0
+    strategy.exit("Stop", "Long", stop = trailStop)
+    if exitTrend or exitRegime
+        strategy.close("Long", comment = exitTrend ? "MA50" : "Regime")
+
+// ----------------------------------------------------------------------------
+// Visual
+// ----------------------------------------------------------------------------
+plot(ma50,  "MA50",  color.new(color.blue, 0),   linewidth = 1)
+plot(ma200, "MA200", color.new(color.orange, 0), linewidth = 2)
+plot(strategy.position_size > 0 ? trailStop : na, "Trailing Stop",
+     color.new(color.red, 0), style = plot.style_linebr, linewidth = 2)
+
+bgcolor(riskOn ? na : color.new(color.red, 92), title = "Regime OFF")
+plotshape(entrySignal and strategy.position_size == 0, "Entry", shape.triangleup,
+     location.belowbar, color.new(color.green, 0), size = size.tiny)
+
+// ----------------------------------------------------------------------------
+// Alert
+// ----------------------------------------------------------------------------
+alertcondition(entrySignal, "IDX Entry",
+     "IDX Momentum: sinyal beli {{ticker}} @ {{close}}")

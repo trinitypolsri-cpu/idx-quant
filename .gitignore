@@ -1,0 +1,19 @@
+# Cache data harga — diunduh ulang tiap run, tidak perlu masuk repo
+data/*.csv
+data/intraday.db*
+data/alerts.db*
+
+# JANGAN PERNAH commit ini: berisi token Telegram dan topik ntfy
+data/alert_config.json
+
+# Output riset lokal
+output/
+server.log
+server.err
+dashboard.html
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store

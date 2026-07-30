@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0C0F19">
+<title>IDX Screener</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📉</text></svg>">
+<style>
+:root{
+  --bg:#F4F5F8;--card:#FFF;--line:#DDE0E8;--line2:#EBEDF2;
+  --text:#1A1E2B;--muted:#5C6478;--faint:#8A91A3;
+  --accent:#8A6115;--accent2:#C08A2E;--accent-bg:rgba(192,138,46,.13);
+  --pos:#1F7A52;--neg:#B03844;--pos-bg:rgba(31,122,82,.12);--neg-bg:rgba(176,56,68,.12);
+  --grid:rgba(26,30,43,.07);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0C0F19;--card:#161A27;--line:#262C3D;--line2:#1E2331;
+  --text:#E6E9F2;--muted:#98A0B4;--faint:#6B7387;
+  --accent:#D9A245;--accent2:#C08A2E;--accent-bg:rgba(217,162,69,.15);
+  --pos:#3FA97B;--neg:#DC5B66;--pos-bg:rgba(63,169,123,.15);--neg-bg:rgba(220,91,102,.15);
+  --grid:rgba(230,233,242,.07);
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+  font-size:15px;line-height:1.5;padding-bottom:env(safe-area-inset-bottom)}
+.num{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Consolas,monospace}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+
+header{background:var(--card);border-bottom:1px solid var(--line);
+  padding:calc(12px + env(safe-area-inset-top)) 16px 12px;position:sticky;top:0;z-index:20}
+.hrow{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:16px}
+.brand b{color:var(--accent)}
+.chip{padding:3px 9px;border-radius:2px;font-size:10.5px;font-weight:800;
+  letter-spacing:.09em;text-transform:uppercase}
+.chip.off{background:var(--neg-bg);color:var(--neg)}
+.chip.on{background:var(--pos-bg);color:var(--pos)}
+.stamp{margin-left:auto;font-size:11px;color:var(--faint)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:3px;margin-top:12px;overflow:hidden}
+.kpi{background:var(--card);padding:9px 10px}
+.kpi .k{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.kpi .v{font-size:17px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+
+nav{display:flex;background:var(--card);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:19;overflow-x:auto}
+nav button{flex:1;min-width:88px;background:none;border:0;padding:12px 8px;font:inherit;
+  font-size:13px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent}
+nav button.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+main{padding:14px 12px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:4px;
+  margin-bottom:10px;overflow:hidden}
+.crow{display:flex;align-items:center;gap:10px;padding:11px 13px}
+.crow:active{background:var(--accent-bg)}
+.tk{font-weight:800;font-size:15px;letter-spacing:-.01em}
+.sub{font-size:11.5px;color:var(--faint);margin-top:1px}
+.right{margin-left:auto;text-align:right}
+.big{font-weight:800;font-size:15px}
+.tags{display:flex;gap:4px;flex-wrap:wrap;padding:0 13px 10px}
+.tag{font-size:10px;font-weight:800;padding:2px 6px;border-radius:2px;
+  background:var(--grid);color:var(--muted)}
+.tag.kuat{background:var(--pos-bg);color:var(--pos)}
+.tag.sedang{background:var(--accent-bg);color:var(--accent)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.sect{font-size:10.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--faint);margin:18px 2px 8px}
+.det{border-top:1px solid var(--line2);padding:11px 13px;font-size:13px;display:none}
+.det.open{display:block}
+.lrow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line2)}
+.lrow:last-child{border-bottom:0}
+.lrow.past{opacity:.5}
+.lrow.tp{color:var(--pos)}.lrow.sl{color:var(--neg)}
+.lrow .lk{font-weight:700}
+.warn{background:var(--neg-bg);color:var(--neg);padding:8px 10px;border-radius:3px;
+  font-size:11.5px;margin-top:8px;line-height:1.45}
+.empty{padding:36px 16px;text-align:center;color:var(--faint);font-size:13.5px}
+.bar{height:5px;background:var(--grid);border-radius:3px;flex:1;overflow:hidden}
+.bar>i{display:block;height:100%}
+.foot{color:var(--faint);font-size:11px;padding:16px 4px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <span class="brand">IDX <b>Screener</b></span>
+    <span class="chip off" id="regime">memuat</span>
+    <span class="stamp" id="stamp"></span>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">IHSG</div><div class="v num" id="ihsg">—</div></div>
+    <div class="kpi"><div class="k">vs MA200</div><div class="v num" id="vsma">—</div></div>
+    <div class="kpi"><div class="k">Breadth</div><div class="v num" id="brd">—</div></div>
+  </div>
+</header>
+
+<nav>
+  <button class="on" data-t="sinyal">Sinyal</button>
+  <button data-t="scalping">Scalping</button>
+  <button data-t="sektor">Sektor</button>
+  <button data-t="semua">Semua</button>
+</nav>
+
+<main id="main"><div class="empty">Memuat data…</div></main>
+
+<script>
+const $=s=>document.querySelector(s);
+const D={};
+const fmt=(v,d=1)=>v==null?"—":(v>0?"+":"")+Number(v).toFixed(d)+"%";
+const cls=v=>v==null?"":v>0?"pos":v<0?"neg":"";
+const rp=v=>v==null?"—":Number(v).toLocaleString("id-ID");
+const KUAT={BaseBreakout:"kuat",SqueezeBreakout:"sedang",TrendTemplate:"sedang"};
+
+async function J(n){ try{ const r=await fetch(`data/${n}.json?t=${Date.now()}`);
+  return r.ok?await r.json():null; }catch(e){ return null; } }
+
+async function boot(){
+  const [s,scr,sec,sc,lv]=await Promise.all(
+    [J("ringkasan"),J("screener"),J("sektor"),J("scalping"),J("level")]);
+  Object.assign(D,{s,scr,sec,sc,lv});
+  if(!s){ $("#main").innerHTML=`<div class="empty">Data belum tersedia.<br>
+    Jalankan workflow GitHub Actions dulu.</div>`; return; }
+
+  const rg=$("#regime");
+  rg.textContent=s.regime; rg.className="chip "+(s.regime==="risk-on"?"on":"off");
+  $("#ihsg").textContent=rp(s.ihsg);
+  const v=$("#vsma"); v.textContent=fmt(s.vs_ma200); v.className="v num "+cls(s.vs_ma200);
+  $("#brd").textContent=s.breadth_ma200+"%";
+  // Tampilkan TANGGAL BAR DATA, bukan waktu build. Keduanya bisa berbeda, dan
+  // kalau berbeda jauh berarti data basi — itu harus terlihat, bukan tersembunyi.
+  const td = new Date(s.tanggal_data + "T00:00:00");
+  const beda = Math.floor((new Date(s.waktu) - td) / 86400000);
+  const lbl = td.toLocaleDateString("id-ID",{day:"2-digit",month:"short"});
+  const el = $("#stamp");
+  el.textContent = "data " + lbl;
+  if (beda > 3) {                       // >3 hari = lebih dari akhir pekan panjang
+    el.textContent += ` · basi ${beda} hari`;
+    el.style.color = "var(--neg)";
+    el.style.fontWeight = "700";
+  }
+  render("sinyal");
+}
+
+function kartuSaham(x,extra){
+  const tags=(x.setups||[]).map(s=>
+    `<span class="tag ${KUAT[s]||""}">${s.replace(/([A-Z])/g," $1").trim()}</span>`).join("");
+  return `<div class="card" data-tk="${x.ticker}">
+    <div class="crow" onclick="toggle('${x.ticker}')">
+      <span class="dot" style="background:${x.di_atas_ma200?"var(--pos)":"var(--neg)"}"></span>
+      <div><div class="tk">${x.ticker}</div><div class="sub">${x.sektor||""}</div></div>
+      <div class="right"><div class="big num">${rp(x.close)}</div>
+        <div class="sub num ${cls(x.ret_1m)}">${fmt(x.ret_1m)} 1bln</div></div>
+    </div>
+    ${tags?`<div class="tags">${tags}</div>`:""}
+    <div class="det" id="d-${x.ticker}">${extra||""}</div>
+  </div>`;
+}
+
+function levelHtml(tk){
+  const a=(D.lv||{})[tk];
+  if(!a||!a.pivot) return `<div class="sub">Level tidak tersedia.</div>`;
+  const p=a.pivot,r=a.rencana||{},px=a.harga;
+  const piv=["R3","R2","R1","PP","S1","S2","S3"].map(k=>{
+    const past=(k[0]==="R"&&p[k]<px)||(k[0]==="S"&&p[k]>px);
+    return `<div class="lrow ${past?"past":""}"><span class="lk">${k}</span>
+      <span class="num">${rp(p[k])}</span></div>`;}).join("");
+  let plan="";
+  if(r.tp){
+    plan=`<div class="lrow sl"><span class="lk">SL</span>
+      <span class="num">${rp(r.sl)} (−${r.risiko_pct}%)</span></div>`
+      +r.tp.map(t=>`<div class="lrow tp ${t.di_atas_ara?"past":""}">
+        <span class="lk">${t.nama}</span>
+        <span class="num">${rp(t.level)} (+${t.gain_pct}%)</span></div>`).join("")
+      +(r.batas_ara?`<div class="lrow"><span class="lk">ARA</span>
+        <span class="num">${rp(r.batas_ara)}</span></div>`:"");
+  }
+  const dilewati=["R1","R2","R3"].filter(k=>p[k]<px).length;
+  let w="";
+  if(dilewati===3) w+=`Harga di atas seluruh pivot resistance — pivot harian tidak memberi target ke atas.`;
+  if(r.semua_tp_di_atas_ara) w+=`${w?"<br>":""}Semua TP di atas batas ARA.`;
+  return `<div style="font-weight:800;font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:6px">Pivot</div>${piv}
+    ${plan?`<div style="font-weight:800;font-size:11px;letter-spacing:.1em;
+      text-transform:uppercase;color:var(--faint);margin:12px 0 6px">Rencana trade</div>${plan}`:""}
+    ${w?`<div class="warn">${w}</div>`:""}`;
+}
+
+window.toggle=tk=>{ const e=$(`#d-${tk}`); if(e) e.classList.toggle("open"); };
+
+function render(tab){
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===tab));
+  const m=$("#main");
+  const rows=(D.scr||{}).rows||[];
+
+  if(tab==="sinyal"){
+    const hit=rows.filter(x=>(x.setups||[]).length);
+    m.innerHTML = hit.length
+      ? `<div class="sect">${hit.length} emiten dengan sinyal aktif</div>`
+        + hit.map(x=>kartuSaham(x,levelHtml(x.ticker))).join("")
+        + `<div class="foot">Ketuk kartu untuk melihat pivot, TP, dan SL.
+           Semua level sudah dibulatkan ke fraksi harga IDX dan dipotong batas ARA.</div>`
+      : `<div class="empty">Tidak ada sinyal aktif saat ini.</div>`;
+  }
+
+  else if(tab==="scalping"){
+    const sc=(D.sc||{}).rows||[];
+    m.innerHTML = sc.length
+      ? `<div class="sect">Momentum intraday · ${(D.sc.dipindai||0)} disaring</div>`
+        + sc.map(x=>`<div class="card"><div class="crow">
+            <div><div class="tk">${x.ticker}</div>
+              <div class="sub">${x.label||""}</div></div>
+            <div class="right"><div class="big num">${rp(x.harga)}</div>
+              <div class="sub num ${cls(x.ret_sesi)}">${fmt(x.ret_sesi,2)} sesi</div></div>
+          </div>
+          <div class="tags">
+            <span class="tag">VWAP ${fmt(x.vs_vwap,2)}</span>
+            <span class="tag">RVol ${x.rvol??"—"}x</span>
+            <span class="tag ${x.biaya_putaran>1?"":"sedang"}">Biaya ${x.biaya_putaran??"—"}%</span>
+            ${x.ara_head!=null?`<span class="tag ${x.ara_head<5?"":""}">ARA ${x.ara_head}%</span>`:""}
+          </div></div>`).join("")
+        + `<div class="foot">Data delay 10–20 menit. Berguna untuk melihat apa yang
+           bergerak, bukan untuk eksekusi presisi.</div>`
+      : `<div class="empty">Belum ada data intraday.</div>`;
+  }
+
+  else if(tab==="sektor"){
+    const se=(D.sec||{}).rows||[];
+    m.innerHTML = se.length
+      ? `<div class="sect">Rotasi sektor</div>`
+        + se.map(x=>`<div class="card"><div class="crow">
+            <div><div class="tk" style="font-size:14px">${x.sektor}</div>
+              <div class="sub">${x.n} emiten · ${x.n_sinyal} sinyal</div></div>
+            <div class="right"><div class="big num ${cls(x.ret_1m)}">${fmt(x.ret_1m)}</div>
+              <div class="sub num">3b ${fmt(x.ret_3m)}</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;padding:0 13px 11px">
+            <span class="sub num" style="min-width:34px">${x.above_ma200}%</span>
+            <span class="bar"><i style="width:${x.above_ma200}%;background:${
+              x.above_ma200>=25?"var(--pos)":x.above_ma200>=10?"var(--accent2)":"var(--neg)"}"></i></span>
+            <span class="sub">di atas MA200</span>
+          </div></div>`).join("")
+      : `<div class="empty">Belum ada data sektor.</div>`;
+  }
+
+  else {
+    m.innerHTML = rows.length
+      ? `<div class="sect">${rows.length} emiten likuid · urut skor</div>`
+        + rows.map(x=>kartuSaham(x,levelHtml(x.ticker))).join("")
+      : `<div class="empty">Belum ada data.</div>`;
+  }
+  window.scrollTo({top:0,behavior:"instant"});
+}
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>render(b.dataset.t));
+boot();
+</script>
+</body>
+</html>

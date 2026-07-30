@@ -1,0 +1,1 @@
+"""Aplikasi screener IDX."""

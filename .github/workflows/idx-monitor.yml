@@ -1,0 +1,63 @@
+name: IDX Monitor
+
+# Jadwal dalam UTC. WIB = UTC+7, jadi bursa 09:00-16:00 WIB = 02:00-09:00 UTC.
+# Setiap 30 menit pada hari kerja. Ubah ke */15 bila repo publik (menit Actions
+# tak terbatas); untuk repo privat */30 menjaga pemakaian di bawah kuota gratis.
+#
+# CATATAN: cron GitHub Actions bersifat best-effort dan bisa tertunda 5-15 menit,
+# terutama di jam sibuk. Ditambah delay data 10-20 menit, total keterlambatan bisa
+# 15-35 menit. Ini pemantau, bukan alat eksekusi.
+
+on:
+  schedule:
+    - cron: "*/30 2-9 * * 1-5"
+  workflow_dispatch:            # tombol jalankan manual di tab Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: idx-monitor
+  cancel-in-progress: false
+
+jobs:
+  pindai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Pasang dependensi
+        run: pip install -r requirements.txt
+
+      - name: Pulihkan riwayat alert
+        uses: actions/cache@v4
+        with:
+          path: data/alerts.db
+          key: alerts-db-${{ github.run_id }}
+          restore-keys: alerts-db-
+
+      - name: Pindai pasar dan kirim alert
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python build_static.py --alert
+
+      - name: Commit hasil
+        run: |
+          git config user.name  "idx-monitor"
+          git config user.email "actions@github.com"
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "Tidak ada perubahan data."
+          else
+            git commit -m "data: pindai $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
