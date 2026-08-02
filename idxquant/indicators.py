@@ -6,6 +6,26 @@ import numpy as np
 import pandas as pd
 
 
+def mulai(x: pd.Series) -> pd.Series:
+    """Bar PERTAMA saat sebuah kondisi boolean mulai berlaku (transisi False->True).
+
+    JANGAN tulis `x & ~x.shift(1).fillna(False)` secara langsung. `Series.shift()`
+    pada dtype bool mengembalikan dtype OBJECT (karena harus menampung NaN), dan
+    operator `~` pada object melakukan negasi bitwise integer: ~True menjadi -2,
+    ~False menjadi -1. Keduanya truthy, sehingga ekspresi itu diam-diam menyusut
+    menjadi `x` saja — kondisi yang persisten selama 73 bar akan terhitung 73 kali,
+    bukan sekali. Tidak ada error yang muncul; hanya angkanya yang salah.
+    """
+    b = x.fillna(False).astype(bool)
+    return b & ~b.shift(1, fill_value=False).astype(bool)
+
+
+def selesai(x: pd.Series) -> pd.Series:
+    """Bar pertama saat kondisi berhenti berlaku (transisi True->False)."""
+    b = x.fillna(False).astype(bool)
+    return (~b) & b.shift(1, fill_value=False).astype(bool)
+
+
 def sma(s: pd.Series, n: int) -> pd.Series:
     return s.rolling(n, min_periods=n).mean()
 

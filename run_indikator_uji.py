@@ -20,6 +20,7 @@ from idxquant import data as dl
 from idxquant import setups as st
 from idxquant import smc
 from idxquant.altdata import fdr_bh
+from idxquant.indicators import mulai
 from idxquant.config import FEE_BUY, FEE_SELL, OUT_DIR
 from idxquant.universe import BENCHMARK, CANDIDATES
 
@@ -46,13 +47,13 @@ def sinyal_bullish(d: pd.DataFrame) -> dict[str, pd.Series]:
 
     # --- klasik: tren ---
     s["Supertrend balik naik"] = (d["st_arah"] > 0) & (d["st_arah"].shift(1) <= 0)
-    s["PSAR balik naik"] = d["psar_naik"] & ~d["psar_naik"].shift(1).fillna(False)
+    s["PSAR balik naik"] = mulai(d["psar_naik"])
     s["EMA10 cross EMA21"] = (d["ema10"] > d["ema21"]) & (d["ema10"].shift(1) <= d["ema21"].shift(1))
     s["Golden cross MA50/200"] = (d["ma50"] > d["ma200"]) & (d["ma50"].shift(1) <= d["ma200"].shift(1))
     s["ADX>25 & tren naik"] = (d["adx14"] > 25) & (c > d["ma50"]) & (d["adx14"].shift(1) <= 25)
 
     # --- Ichimoku ---
-    s["Tembus atas kumo"] = d["di_atas_kumo"] & ~d["di_atas_kumo"].shift(1).fillna(False)
+    s["Tembus atas kumo"] = mulai(d["di_atas_kumo"])
     s["Tenkan cross Kijun"] = (d["tenkan"] > d["kijun"]) & (d["tenkan"].shift(1) <= d["kijun"].shift(1))
     s["Kumo naik + harga atas"] = d["di_atas_kumo"] & (d["senkou_a"] > d["senkou_b"])
 
@@ -69,6 +70,19 @@ def sinyal_bullish(d: pd.DataFrame) -> dict[str, pd.Series]:
     s["Sweep + discount"] = d["sweep_bawah"] & d["discount"]
     s["Setup ICT bullish"] = d["setup_ict_bullish"]
     s["Discount zone"] = d["discount"]
+
+    # --- versi PERISTIWA dari sinyal yang terlalu sering menyala ---
+    # "MACD sedang di atas nol" berlaku pada ~46% emiten pada hari tertentu —
+    # itu keadaan pasar, bukan sinyal. Versi peristiwa hanya menandai BAR PERTAMA
+    # saat keadaan itu mulai berlaku, sehingga jauh lebih selektif.
+    def peristiwa(x: pd.Series) -> pd.Series:
+        x = x.fillna(False)
+        return mulai(x)
+
+    s["[E] MACD >0 mulai"] = peristiwa(s["MACD > 0 & naik"])
+    s["[E] BOS naik mulai"] = peristiwa(s["BOS naik"])
+    s["[E] Kumo atas mulai"] = peristiwa(s["Kumo naik + harga atas"])
+    s["[E] ADR tenang mulai"] = peristiwa(s["ADR terpakai <50%"])
 
     return {k: v.fillna(False) for k, v in s.items()}
 

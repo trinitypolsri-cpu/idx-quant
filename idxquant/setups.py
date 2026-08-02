@@ -7,6 +7,7 @@ import pandas as pd
 
 from .config import MIN_PRICE, MIN_TURNOVER_IDR
 from .indicators import enrich
+from .indicators import mulai
 from .universe import sector_of
 
 # ---------------------------------------------------------------------------
@@ -98,10 +99,17 @@ def fvg_bullish(d: pd.DataFrame, min_pct: float = 0.002) -> pd.Series:
     return (celah > 0) & (celah / d["close"] > min_pct)
 
 
-def kumo_breakout(d: pd.DataFrame) -> pd.Series:
-    """Harga menembus ke atas awan Ichimoku dengan awan berarah naik."""
-    atas = (d["close"] > d["senkou_a"]) & (d["close"] > d["senkou_b"])
-    return atas & ~atas.shift(1).fillna(False) & (d["senkou_a"] > d["senkou_b"])
+def kumo_naik(d: pd.DataFrame) -> pd.Series:
+    """FILTER, bukan pemicu: harga di atas awan Ichimoku dan awan berarah naik.
+
+    Versi PERISTIWA (bar saat harga baru menembus awan) sudah diuji dan TIDAK
+    punya edge: +0,316% vs base dengan t=0,65, bahkan negatif bila hanya
+    menembus tanpa syarat awan naik (-0,541%, t=-1,42). Yang punya edge adalah
+    KEADAANNYA (+1,136%, t=7,92). Karena itu ini dipakai sebagai penyaring
+    kondisi, bukan sinyal "beli hari ini".
+    """
+    return ((d["close"] > d["senkou_a"]) & (d["close"] > d["senkou_b"])
+            & (d["senkou_a"] > d["senkou_b"]))
 
 
 def macd_momentum(d: pd.DataFrame) -> pd.Series:
@@ -130,11 +138,16 @@ SETUPS = {
     "PullbackUptrend": pullback_uptrend,
     "MeanReversion": mean_reversion,
     "FVGBullish": fvg_bullish,
-    "KumoBreakout": kumo_breakout,
+    "KumoNaik": kumo_naik,
     "MACDMomentum": macd_momentum,
     "BOSNaik": bos_naik,
     "ADRTenang": adr_tenang,
 }
+
+# Sinyal yang bersifat KEADAAN (berlaku berhari-hari), bukan pemicu entry.
+# Dipisahkan agar tidak dibaca sebagai "beli hari ini" — keempatnya menyala pada
+# 40-46% emiten karena memang sebanyak itu yang sedang dalam kondisi tersebut.
+FILTER = {"KumoNaik", "MACDMomentum", "BOSNaik", "ADRTenang"}
 
 
 # ---------------------------------------------------------------------------

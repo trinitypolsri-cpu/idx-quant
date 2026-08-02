@@ -21,6 +21,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .config import ar_limit  # noqa: F401  (dipakai modul terkait)
+from .indicators import mulai
+
 
 def tandai_lonjakan(d: pd.DataFrame, ambang: float = 0.20,
                     jendela: int = 5) -> pd.DataFrame:
@@ -30,7 +33,7 @@ def tandai_lonjakan(d: pd.DataFrame, ambang: float = 0.20,
     fwd = x["close"].shift(-jendela) / x["close"] - 1
     x["lonjakan"] = fwd >= ambang
     # Hanya ambil awal episode: buang sinyal berturut-turut
-    x["lonjakan_awal"] = x["lonjakan"] & ~x["lonjakan"].shift(1).fillna(False)
+    x["lonjakan_awal"] = mulai(x["lonjakan"])
     return x
 
 
