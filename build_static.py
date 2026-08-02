@@ -123,8 +123,73 @@ def main(kirim_alert: bool = False, top_scalp: int = 20):
                             "dipindai": stats["tahap1_ticker"],
                             "digali": stats["tahap2_ticker"]})
 
-    # ---- level untuk kandidat bersinyal ----
-    kandidat = [x for x in rows if x["setups"]][:25]
+    # ---- model gabungan: satu probabilitas terkalibrasi ----
+    from idxquant import combined as cb
+    from idxquant import journal as jr
+
+    likuid_set = set(liq["ticker"])
+    print("  melatih model gabungan ...")
+    P = cb.bangun_panel(prep, likuid_set)
+    gab_rows = []
+    if not P.empty:
+        r = cb.latih_dan_uji(P)
+        if "error" not in r:
+            pk = cb.peluang_hari_ini(r["model"], r.get("kalibrator"),
+                                     prep, likuid_set, r["fitur"])
+            peta_setup = {x["ticker"]: x["setups"] for x in rows}
+            gab_rows = [{
+                "ticker": t.ticker, "harga": round(float(t.close)),
+                "peluang": round(float(t.peluang) * 100, 2),
+                "setups": peta_setup.get(t.ticker, []),
+            } for t in pk.itertuples()]
+            tulis("gabungan.json", {
+                "rows": gab_rows[:40],
+                "auc": round(r["auc"], 4),
+                "n_uji": r["n_uji"],
+                "base_return": round(r["base_return"] * 100, 3),
+                "n_fitur": len(r["fitur"]),
+                "kalibrasi": r["kalibrasi"].reset_index().astype(str).to_dict("records"),
+            })
+            print(f"    AUC {r['auc']:.4f} · {len(r['fitur'])} fitur · "
+                  f"base return {r['base_return']*100:+.2f}%")
+
+            # ---- catat prediksi ke jurnal (sebelum hasilnya diketahui) ----
+            tgl = b.index[-1].strftime("%Y-%m-%d")
+            n = jr.catat(gab_rows[:40], tgl, base=r["base_return"])
+            print(f"    jurnal: {n} prediksi baru dicatat untuk {tgl}")
+
+    # ---- data grafik untuk HP ----
+    kandidat_chart = [x["ticker"] for x in gab_rows[:30]] or \
+                     [x["ticker"] for x in rows[:30]]
+    charts = {}
+    for t in kandidat_chart:
+        d = prep.get(t)
+        if d is None or len(d) < 70:
+            continue
+        w = d.tail(60)
+        charts[t] = {
+            "t": [x.strftime("%d/%m") for x in w.index],
+            # dibulatkan agar payload tetap ringan di jaringan seluler
+            "o": [round(float(v), 1) for v in w["open"]],
+            "h": [round(float(v), 1) for v in w["high"]],
+            "l": [round(float(v), 1) for v in w["low"]],
+            "c": [round(float(v), 1) for v in w["close"]],
+            "v": [int(v) for v in w["volume"].fillna(0)],
+            "ma20": [None if pd.isna(v) else round(float(v), 1) for v in w["ma20"]],
+            "ma50": [None if pd.isna(v) else round(float(v), 1) for v in w["ma50"]],
+        }
+    tulis("chart.json", charts)
+
+    # ---- level: kandidat bersinyal DAN kandidat model gabungan ----
+    # Harus setelah blok gabungan, karena tab Peluang di HP menampilkan emiten
+    # yang belum tentu punya setup — tanpa ini levelnya kosong di sana.
+    dari_gab = [{"ticker": g["ticker"], "setups": g.get("setups", [])}
+                for g in gab_rows[:30]]
+    sudah, kandidat = set(), []
+    for x in [x for x in rows if x["setups"]][:25] + dari_gab:
+        if x["ticker"] not in sudah:
+            sudah.add(x["ticker"])
+            kandidat.append(x)
     lv = {}
     for x in kandidat:
         d = prep.get(x["ticker"])

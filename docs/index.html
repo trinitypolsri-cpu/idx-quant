@@ -98,7 +98,8 @@ main{padding:14px 12px 40px}
 </header>
 
 <nav>
-  <button class="on" data-t="sinyal">Sinyal</button>
+  <button class="on" data-t="peluang">Peluang</button>
+  <button data-t="sinyal">Sinyal</button>
   <button data-t="ara">ARA</button>
   <button data-t="scalping">Scalping</button>
   <button data-t="sektor">Sektor</button>
@@ -121,9 +122,10 @@ async function J(n){ try{ const r=await fetch(`data/${n}.json?t=${Date.now()}`);
   return r.ok?await r.json():null; }catch(e){ return null; } }
 
 async function boot(){
-  const [s,scr,sec,sc,lv,ara]=await Promise.all(
-    [J("ringkasan"),J("screener"),J("sektor"),J("scalping"),J("level"),J("ara")]);
-  Object.assign(D,{s,scr,sec,sc,lv,ara});
+  const [s,scr,sec,sc,lv,ara,gab,cht]=await Promise.all(
+    [J("ringkasan"),J("screener"),J("sektor"),J("scalping"),J("level"),J("ara"),
+     J("gabungan"),J("chart")]);
+  Object.assign(D,{s,scr,sec,sc,lv,ara,gab,cht});
   if(!s){ $("#main").innerHTML=`<div class="empty">Data belum tersedia.<br>
     Jalankan workflow GitHub Actions dulu.</div>`; return; }
 
@@ -144,7 +146,49 @@ async function boot(){
     el.style.color = "var(--neg)";
     el.style.fontWeight = "700";
   }
-  render("sinyal");
+  render("peluang");
+}
+
+/* ---------- candlestick ---------- */
+function gambarChart(id, tk){
+  const d=(D.cht||{})[tk]; const cv=document.getElementById(id);
+  if(!d||!cv) return;
+  const dpr=devicePixelRatio||1, w=cv.clientWidth||320, h=190;
+  cv.width=w*dpr; cv.height=h*dpr;
+  const g=cv.getContext("2d"); g.scale(dpr,dpr); g.clearRect(0,0,w,h);
+  const css=getComputedStyle(document.body), C=n=>css.getPropertyValue(n).trim();
+  const PL=44,PR=6,PT=8,PB=30,VH=26, iw=w-PL-PR, ih=h-PT-PB-VH;
+  let lo=Math.min(...d.l), hi=Math.max(...d.h);
+  const pad=(hi-lo)*.06||1; lo-=pad; hi+=pad;
+  const n=d.c.length, X=i=>PL+iw*i/(n-1||1), Y=v=>PT+ih*(1-(v-lo)/(hi-lo));
+
+  g.strokeStyle=C("--grid"); g.lineWidth=1; g.font="9px ui-monospace,monospace";
+  g.fillStyle=C("--faint"); g.textAlign="right";
+  for(let i=0;i<=3;i++){const v=lo+(hi-lo)*i/3,y=Y(v);
+    g.beginPath();g.moveTo(PL,y);g.lineTo(w-PR,y);g.stroke();
+    g.fillText(Math.round(v).toLocaleString("id-ID"),PL-5,y+3);}
+
+  const vmax=Math.max(...d.v)||1, bw=Math.max(1.2,iw/n*.6);
+  d.v.forEach((v,i)=>{const bh=VH*v/vmax, up=i>0&&d.c[i]>=d.c[i-1];
+    g.fillStyle=up?C("--pos-bg"):C("--neg-bg");
+    g.fillRect(X(i)-bw/2,h-PB+8+(VH-bh),bw,bh);});
+
+  for(let i=0;i<n;i++){
+    const up=d.c[i]>=d.o[i], col=up?C("--pos"):C("--neg");
+    g.strokeStyle=col; g.fillStyle=col; g.lineWidth=1;
+    g.beginPath(); g.moveTo(X(i),Y(d.h[i])); g.lineTo(X(i),Y(d.l[i])); g.stroke();
+    const y1=Y(d.o[i]), y2=Y(d.c[i]);
+    g.fillRect(X(i)-bw/2,Math.min(y1,y2),bw,Math.max(1,Math.abs(y2-y1)));
+  }
+  const garis=(arr,col,lw)=>{g.strokeStyle=col;g.lineWidth=lw;g.beginPath();let st=false;
+    arr.forEach((v,i)=>{if(v==null){st=false;return;}
+      if(!st){g.moveTo(X(i),Y(v));st=true;}else g.lineTo(X(i),Y(v));});g.stroke();};
+  garis(d.ma20,C("--muted"),1); garis(d.ma50,C("--accent"),1.5);
+
+  g.fillStyle=C("--faint"); g.textAlign="center";
+  [0,Math.floor(n/2),n-1].forEach(i=>{if(d.t[i])g.fillText(d.t[i],X(i),h-PB+4);});
+  g.textAlign="left"; g.fillStyle=C("--muted"); g.fillText("MA20",PL+2,PT+9);
+  g.fillStyle=C("--accent"); g.fillText("MA50",PL+34,PT+9);
 }
 
 function kartuSaham(x,extra){
@@ -191,14 +235,62 @@ function levelHtml(tk){
     ${w?`<div class="warn">${w}</div>`:""}`;
 }
 
-window.toggle=tk=>{ const e=$(`#d-${tk}`); if(e) e.classList.toggle("open"); };
+window.toggle=tk=>{
+  const e=$(`#d-${tk}`); if(!e) return;
+  e.classList.toggle("open");
+  // Canvas baru punya lebar setelah .open selesai dilayout. requestAnimationFrame
+  // menembak terlalu awal — clientWidth masih 0 dan gambar tidak muncul. Coba
+  // beberapa kali sampai elemennya benar-benar terukur.
+  if(e.classList.contains("open")){
+    let coba=0;
+    const gambar=()=>{
+      const cv=document.getElementById(`cv-${tk}`);
+      if(cv && cv.clientWidth>50){ gambarChart(`cv-${tk}`,tk); return; }
+      if(coba++<10) setTimeout(gambar,60);
+    };
+    setTimeout(gambar,30);
+  }
+};
 
 function render(tab){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===tab));
   const m=$("#main");
   const rows=(D.scr||{}).rows||[];
 
-  if(tab==="sinyal"){
+  if(tab==="peluang"){
+    const g=D.gab||{}, gr=g.rows||[];
+    if(!gr.length){ m.innerHTML=`<div class="empty">Model gabungan belum tersedia.</div>`; return; }
+    const lemah = (g.auc||0) < 0.60;
+    m.innerHTML =
+      `<div class="sect">Probabilitas gabungan · ${g.n_fitur} fitur</div>`
+      + (lemah?`<div class="warn" style="margin:0 0 10px">
+          <b>AUC hanya ${g.auc}</b> — model nyaris tidak bisa memeringkat mayoritas
+          saham (0,50 = tebakan acak). Hanya kelompok teratas yang terbukti berbeda:
+          1,3% tertinggi menghasilkan <b>+6,35%</b> vs base <b>+${g.base_return}%</b>.
+          Perlakukan daftar ini sebagai penyaring ekor, bukan peringkat.</div>`:"")
+      + gr.slice(0,25).map((x,i)=>{
+          const kuat=x.peluang>=50, sedang=x.peluang>=35;
+          const tags=(x.setups||[]).map(s=>
+            `<span class="tag ${KUAT[s]||""}">${s.replace(/([A-Z])/g," $1").trim()}</span>`).join("");
+          return `<div class="card" data-tk="${x.ticker}">
+            <div class="crow" onclick="toggle('${x.ticker}')">
+              <span class="dot" style="background:${kuat?"var(--pos)":sedang?"var(--accent2)":"var(--faint)"}"></span>
+              <div><div class="tk">${x.ticker}</div>
+                <div class="sub">peringkat ${i+1} · peluang unggul ${x.peluang}%</div></div>
+              <div class="right"><div class="big num">${rp(x.harga)}</div></div>
+            </div>
+            ${tags?`<div class="tags">${tags}</div>`:""}
+            <div class="det" id="d-${x.ticker}">
+              <canvas id="cv-${x.ticker}" style="width:100%;height:190px"></canvas>
+              ${levelHtml(x.ticker)}
+            </div></div>`;
+        }).join("")
+      + `<div class="foot">Ketuk kartu untuk grafik candlestick 60 hari + level.
+         "Peluang unggul" = probabilitas mengalahkan return rata-rata emiten likuid
+         dalam 21 hari bursa, sudah dipotong biaya. Bukan peluang naik.</div>`;
+  }
+
+  else if(tab==="sinyal"){
     const hit=rows.filter(x=>(x.setups||[]).length);
     m.innerHTML = hit.length
       ? `<div class="sect">${hit.length} emiten dengan sinyal aktif</div>`
