@@ -18,16 +18,29 @@ WIB = dt.timezone(dt.timedelta(hours=7))
 
 SETUP_LABELS = {
     "BaseBreakout":    ("Base Breakout", "Jebol tertinggi 55 hari + volume 1,8x", "kuat"),
+    "FVGBullish":      ("FVG Bullish (ICT)", "Celah tiga-lilin, ketidakseimbangan", "kuat"),
+    "KumoBreakout":    ("Kumo Breakout", "Tembus atas awan Ichimoku, awan naik", "kuat"),
     "SqueezeBreakout": ("Squeeze Breakout", "Volatilitas mampat lalu jebol", "sedang"),
+    "ADRTenang":       ("ADR Tenang", "Rentang <50% ADR dalam tren naik", "sedang"),
     "TrendTemplate":   ("Trend Template", "Struktur MA rapi, dekat puncak 52mg", "sedang"),
+    "MACDMomentum":    ("MACD Momentum", "MACD >0 dan menguat, di atas MA50", "sedang"),
+    "BOSNaik":         ("BOS Naik (SMC)", "Tembus swing high terkonfirmasi", "sedang"),
     "RSLeader":        ("RS Leader", "Kekuatan relatif vs IHSG tertinggi 63h", "lemah"),
     "PullbackUptrend": ("Pullback Uptrend", "Koreksi ke EMA21 dalam tren naik", "lemah"),
     "MeanReversion":   ("Mean Reversion", "Jenuh jual di atas MA200", "lemah"),
 }
 
 # Bukti dari event study 5 tahun: (avg return 21 hari setelah biaya, jumlah sinyal, t-stat)
+# Untuk setup baru, `edge` adalah KELEBIHAN di atas base rate (bukan return mentah),
+# karena itulah yang menentukan apakah sinyal menambah nilai. Base rate return 21
+# hari untuk emiten likuid setelah biaya: +0,834%.
 SETUP_EVIDENCE = {
     "BaseBreakout":    {"edge": 1.58, "n": 1300,  "t": 2.49},
+    "FVGBullish":      {"edge": 0.86, "n": 9418,  "t": 3.75},
+    "KumoBreakout":    {"edge": 0.82, "n": 21898, "t": 6.15},
+    "ADRTenang":       {"edge": 0.71, "n": 8970,  "t": 3.04},
+    "MACDMomentum":    {"edge": 0.47, "n": 23441, "t": 3.63},
+    "BOSNaik":         {"edge": 0.34, "n": 24697, "t": 2.70},
     "SqueezeBreakout": {"edge": 1.01, "n": 1916,  "t": 1.95},
     "TrendTemplate":   {"edge": 0.58, "n": 13471, "t": 3.48},
     "RSLeader":        {"edge": 0.22, "n": 6797,  "t": 0.89},

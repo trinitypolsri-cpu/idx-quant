@@ -113,7 +113,9 @@ const D={};
 const fmt=(v,d=1)=>v==null?"—":(v>0?"+":"")+Number(v).toFixed(d)+"%";
 const cls=v=>v==null?"":v>0?"pos":v<0?"neg":"";
 const rp=v=>v==null?"—":Number(v).toLocaleString("id-ID");
-const KUAT={BaseBreakout:"kuat",SqueezeBreakout:"sedang",TrendTemplate:"sedang"};
+const KUAT={BaseBreakout:"kuat",FVGBullish:"kuat",KumoBreakout:"kuat",
+  SqueezeBreakout:"sedang",ADRTenang:"sedang",TrendTemplate:"sedang",
+  MACDMomentum:"sedang",BOSNaik:"sedang"};
 
 async function J(n){ try{ const r=await fetch(`data/${n}.json?t=${Date.now()}`);
   return r.ok?await r.json():null; }catch(e){ return null; } }

@@ -99,8 +99,17 @@ _tag(["POWR","KEEN","ARKO","TGRA","MPOW","KOPI","SURE","BLES","MSTI","AXIO",
 
 
 def yahoo_symbol(ticker: str) -> str:
-    """IDX ticker -> simbol Yahoo Finance."""
-    return ticker if ticker.startswith("^") else f"{ticker}.JK"
+    """IDX ticker -> simbol Yahoo Finance.
+
+    Hanya kode IDX polos (huruf/angka saja) yang diberi akhiran `.JK`. Simbol
+    non-IDX seperti indeks (^JKSE), futures (CL=F), valas (IDR=X), atau bursa
+    lain (000001.SS) dibiarkan apa adanya — menambahkan `.JK` ke simbol itu
+    menghasilkan permintaan yang selalu gagal secara diam-diam.
+    """
+    t = ticker.strip()
+    if not t or not t.isalnum():
+        return t
+    return f"{t}.JK"
 
 
 def sector_of(ticker: str) -> str:

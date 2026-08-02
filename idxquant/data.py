@@ -121,6 +121,32 @@ def load(ticker: str, rng: str = "5y", use_cache: bool = True,
     return df
 
 
+def periksa_resolusi(df: pd.DataFrame, interval: str = "1d",
+                     toleransi: float = 3.0) -> dict:
+    """Pastikan jarak antar bar sesuai interval yang diminta.
+
+    Yahoo DIAM-DIAM menurunkan resolusi bila range terlalu panjang: meminta
+    range=max&interval=1d untuk ^JKSE mengembalikan bar BULANAN, bukan harian.
+    Tanpa pemeriksaan ini, return bulanan mudah disalahartikan sebagai harian —
+    kesalahan yang tidak terlihat dari bentuk datanya.
+    """
+    if df is None or len(df) < 3:
+        return {"ok": False, "alasan": "data terlalu pendek"}
+    jarak = pd.Series(df.index).diff().dt.total_seconds().dropna()
+    if jarak.empty:
+        return {"ok": False, "alasan": "tidak ada jarak"}
+    median_hari = float(jarak.median()) / 86400
+    harapan = {"1d": 1.0, "1wk": 7.0, "1mo": 30.0}.get(interval)
+    if harapan is None:
+        return {"ok": True, "median_hari": median_hari}
+    ok = median_hari <= harapan * toleransi
+    return {"ok": ok, "median_hari": round(median_hari, 2),
+            "diharapkan_hari": harapan, "n_bar": len(df),
+            "alasan": "" if ok else
+            (f"jarak antar bar {median_hari:.1f} hari, bukan ~{harapan} hari — "
+             f"penyedia menurunkan resolusi. Perpendek range.")}
+
+
 def load_many(tickers: list[str], rng: str = "5y", workers: int = 8,
               use_cache: bool = True, min_days: int = MIN_HISTORY_DAYS,
               verbose: bool = True) -> dict[str, pd.DataFrame]:

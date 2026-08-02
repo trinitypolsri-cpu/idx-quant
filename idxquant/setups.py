@@ -78,12 +78,62 @@ def rs_leader(d: pd.DataFrame, rs_line: pd.Series) -> pd.Series:
     return (rs_line >= rs_high * 0.999) & (d["close"] > d["ma50"])
 
 
+# --------------------------------------------------------------------------
+# Setup dari indikator klasik & ICT/SMC — HANYA yang lolos pengujian.
+# Dari 25 sinyal yang diuji (run_indikator_uji.py), 7 mengalahkan base rate dan
+# lolos koreksi FDR. Yang gagal TIDAK dipasang, termasuk Supertrend, PSAR,
+# Stochastic, CCI oversold, RSI oversold, EMA cross, dan Tenkan/Kijun cross.
+#
+# Dua konsep ICT bahkan terbukti MERUGIKAN di IDX dan sengaja tidak dipakai:
+#   Discount zone     -0,667% vs base, t = -10,70  (N=57.684)
+#   Sweep + discount  -0,874% vs base, t =  -2,91
+# Membeli "murah" di zona discount adalah pola menangkap pisau jatuh di pasar
+# yang didominasi momentum seperti IDX.
+# --------------------------------------------------------------------------
+
+
+def fvg_bullish(d: pd.DataFrame, min_pct: float = 0.002) -> pd.Series:
+    """Fair Value Gap bullish (ICT) — celah tiga-lilin, sinyal tunggal terkuat."""
+    celah = d["low"] - d["high"].shift(2)
+    return (celah > 0) & (celah / d["close"] > min_pct)
+
+
+def kumo_breakout(d: pd.DataFrame) -> pd.Series:
+    """Harga menembus ke atas awan Ichimoku dengan awan berarah naik."""
+    atas = (d["close"] > d["senkou_a"]) & (d["close"] > d["senkou_b"])
+    return atas & ~atas.shift(1).fillna(False) & (d["senkou_a"] > d["senkou_b"])
+
+
+def macd_momentum(d: pd.DataFrame) -> pd.Series:
+    """MACD di atas nol dan masih menguat — bukan sekadar persilangan."""
+    return (d["macd"] > 0) & (d["macd"] > d["macd"].shift(1)) & (d["close"] > d["ma50"])
+
+
+def bos_naik(d: pd.DataFrame, kiri: int = 2, kanan: int = 2) -> pd.Series:
+    """Break of Structure naik (SMC) — menembus swing high terkonfirmasi."""
+    h = d["high"]
+    n = kiri + kanan + 1
+    sh = (h == h.rolling(n, center=True).max()).shift(kanan).fillna(False)
+    level = h.where(sh).ffill()
+    return d["close"] > level.shift(1)
+
+
+def adr_tenang(d: pd.DataFrame) -> pd.Series:
+    """Rentang hari ini di bawah 50% ADR — kontraksi volatilitas dalam tren."""
+    return (d["adr_terpakai"] < 50) & (d["close"] > d["ma50"])
+
+
 SETUPS = {
     "TrendTemplate": trend_template,
     "SqueezeBreakout": squeeze_breakout,
     "BaseBreakout": base_breakout,
     "PullbackUptrend": pullback_uptrend,
     "MeanReversion": mean_reversion,
+    "FVGBullish": fvg_bullish,
+    "KumoBreakout": kumo_breakout,
+    "MACDMomentum": macd_momentum,
+    "BOSNaik": bos_naik,
+    "ADRTenang": adr_tenang,
 }
 
 
@@ -94,10 +144,13 @@ SETUPS = {
 
 def prepare(data: dict[str, pd.DataFrame], bench: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Hitung indikator + kolom sinyal untuk tiap ticker."""
+    from .classic import enrich as enrich_klasik
+
     bench_close = bench["close"]
     out = {}
     for t, raw in data.items():
-        d = enrich(raw)
+        # Indikator klasik (MACD, Ichimoku, ADR, dll) dibutuhkan setup baru
+        d = enrich_klasik(enrich(raw))
         rs_line = (d["close"] / bench_close.reindex(d.index).ffill()).replace(
             [np.inf, -np.inf], np.nan
         )
