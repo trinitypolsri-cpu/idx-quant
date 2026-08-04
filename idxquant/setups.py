@@ -135,8 +135,13 @@ SETUPS = {
     "TrendTemplate": trend_template,
     "SqueezeBreakout": squeeze_breakout,
     "BaseBreakout": base_breakout,
-    "PullbackUptrend": pullback_uptrend,
-    "MeanReversion": mean_reversion,
+    # DIMATIKAN — terbukti tidak signifikan pada event study 5 tahun:
+    #   PullbackUptrend  edge +0,11%  t=0,44  (N=2.835)
+    #   MeanReversion    edge +3,11%  t=0,49  tapi N hanya 10
+    #   RSLeader         edge +0,22%  t=0,89  (N=6.797)
+    # Menampilkan sinyal yang tidak terbukti melatih pengguna mengabaikan
+    # SEMUA sinyal, termasuk yang terbukti. Definisinya tetap ada di atas agar
+    # bisa diuji ulang, tapi tidak lagi masuk pemindaian.
     "FVGBullish": fvg_bullish,
     "KumoNaik": kumo_naik,
     "MACDMomentum": macd_momentum,
@@ -170,7 +175,8 @@ def prepare(data: dict[str, pd.DataFrame], bench: pd.DataFrame) -> dict[str, pd.
         d["rs_line"] = rs_line
         for name, fn in SETUPS.items():
             d[f"sig_{name}"] = fn(d).fillna(False)
-        d["sig_RSLeader"] = rs_leader(d, rs_line).fillna(False)
+        # RSLeader dimatikan (t=0,89 — tidak signifikan)
+        d["sig_RSLeader"] = False
         out[t] = d
     return out
 
