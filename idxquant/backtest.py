@@ -109,7 +109,7 @@ def run_rotation(prepared: dict[str, pd.DataFrame], bench: pd.DataFrame,
                  top_n: int = 10, rebalance_dow: int = 4, start: str | None = None,
                  regime_filter: bool = True, stop_atr: float = 2.5,
                  capital: float = 1_000_000_000, require_trend: bool = True,
-                 verbose: bool = True) -> dict:
+                 bobot_atr: bool = False, verbose: bool = True) -> dict:
     """Long-only, rebalance mingguan, bobot sama, top-N skor momentum.
 
     - Keputusan pakai data bar t, eksekusi di OPEN bar t+1.
@@ -171,9 +171,20 @@ def run_rotation(prepared: dict[str, pd.DataFrame], bench: pd.DataFrame,
         pending_sells = []
 
         if pending_buys:
-            slot_value = (cash + sum(pos[t]["shares"] * px_open.get(t, pos[t]["entry"])
-                                     for t in pos)) / max(top_n, 1)
+            total_nilai = cash + sum(pos[t]["shares"] * px_open.get(t, pos[t]["entry"])
+                                     for t in pos)
+            if bobot_atr:
+                # Penyamaan risiko: porsi berbanding terbalik dengan ATR%, sehingga
+                # tiap posisi menyumbang risiko setara — bukan rupiah setara.
+                from .risk import bobot_atr as _hitung_bobot
+                ap = P["atr_pct"].loc[dt].reindex(pending_buys).dropna()
+                w = _hitung_bobot(ap, wmaks=1.0 / max(top_n, 1) * 2.0)
+                slot_map = {t: total_nilai * float(w.get(t, 1.0 / max(top_n, 1)))
+                            for t in pending_buys}
+            else:
+                slot_map = {t: total_nilai / max(top_n, 1) for t in pending_buys}
             for t in pending_buys:
+                slot_value = slot_map.get(t, total_nilai / max(top_n, 1))
                 if t in pos or not np.isfinite(px_open.get(t, np.nan)):
                     continue
                 p = px_open[t] * (1 + SLIPPAGE)

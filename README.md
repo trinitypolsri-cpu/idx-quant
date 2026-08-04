@@ -1,5 +1,26 @@
 # idxquant — aplikasi screener & riset kuantitatif Bursa Efek Indonesia
 
+> **Ringkasan hasil riset (per 4 Agustus 2026).** Semua sudah divalidasi luar sampel
+> dan dikoreksi pengujian berganda. Baca ini sebelum menambah strategi baru —
+> banyak ide yang terdengar masuk akal sudah diuji dan gagal.
+>
+> **Bekerja:** deteksi ARA (AUC 0,80 · lift 5,2x) · deteksi lonjakan >20% (AUC 0,73) ·
+> setup FVG/Kumo/ADR/MACD/BOS (+0,54 s/d +1,24pp di atas base rate 21 hari) ·
+> regime filter IHSG vs MA200 (komponen paling berharga).
+>
+> **Terbukti gagal — jangan diulang:** BSJP overnight (biaya 0,83% > edge di semua
+> tier) · zona discount ICT (−0,667pp, t=−10,70) · penyamaan risiko ATR (CAGR
+> 2,36% → −6,88%) · korelasi makro (hampir semua lag 0) · model gabungan
+> (AUC 0,54) · Supertrend, PSAR, Stochastic, CCI/RSI oversold, EMA cross.
+>
+> **Jebakan teknis yang pernah menggigit:** `x & ~x.shift(1)` pada bool (pakai
+> `indicators.mulai()`) · `rng="max"` mengembalikan bar bulanan diam-diam (pakai
+> `data.periksa_resolusi()`) · dependensi opsional pernah mematikan seluruh build
+> CI (jalankan `uji_tanpa_paket.py` sebelum push).
+>
+> **Batasan utama yang belum diperbaiki:** universe punya survivorship bias, jadi
+> semua angka backtest optimistis.
+
 Aplikasi screener untuk memindai ratusan saham IDX, plus mesin riset untuk memvalidasi
 setup teknikal secara statistik dan mem-backtest strategi momentum dengan biaya khas IDX.
 
