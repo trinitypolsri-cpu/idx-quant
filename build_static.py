@@ -124,15 +124,20 @@ def main(kirim_alert: bool = False, top_scalp: int = 20):
                             "digali": stats["tahap2_ticker"]})
 
     # ---- model gabungan: satu probabilitas terkalibrasi ----
-    from idxquant import combined as cb
-    from idxquant import journal as jr
-
-    likuid_set = set(liq["ticker"])
-    print("  melatih model gabungan ...")
-    P = cb.bangun_panel(prep, likuid_set)
+    # Dibungkus try/except: model ini pelengkap, bukan inti. Kalau scikit-learn
+    # tidak terpasang atau pelatihannya gagal, screener/sektor/scalping/level tetap
+    # harus terbit. Satu fitur opsional tidak boleh mematikan update harian —
+    # persis yang terjadi 3-4 Agustus 2026 ketika scipy & sklearn belum ada di
+    # requirements.txt dan SELURUH build gagal.
     gab_rows = []
-    if not P.empty:
-        r = cb.latih_dan_uji(P)
+    likuid_set = set(liq["ticker"])
+    try:
+        from idxquant import combined as cb
+        from idxquant import journal as jr
+
+        print("  melatih model gabungan ...")
+        P = cb.bangun_panel(prep, likuid_set)
+        r = cb.latih_dan_uji(P) if not P.empty else {"error": "panel kosong"}
         if "error" not in r:
             pk = cb.peluang_hari_ini(r["model"], r.get("kalibrator"),
                                      prep, likuid_set, r["fitur"])
@@ -157,6 +162,11 @@ def main(kirim_alert: bool = False, top_scalp: int = 20):
             tgl = b.index[-1].strftime("%Y-%m-%d")
             n = jr.catat(gab_rows[:40], tgl, base=r["base_return"])
             print(f"    jurnal: {n} prediksi baru dicatat untuk {tgl}")
+        else:
+            print(f"    model gabungan dilewati: {r['error']}")
+    except Exception as e:                                          # noqa: BLE001
+        print(f"    model gabungan GAGAL ({type(e).__name__}: {e}) — dilewati, "
+              f"data inti tetap terbit")
 
     # ---- data grafik untuk HP ----
     kandidat_chart = [x["ticker"] for x in gab_rows[:30]] or \
