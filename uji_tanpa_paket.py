@@ -27,9 +27,12 @@ class Pemblokir(importlib.abc.MetaPathFinder):
 if __name__ == "__main__":
     sys.meta_path.insert(0, Pemblokir())
     print("=" * 70)
-    print(f"UJI: build_static.py tanpa {', '.join(sorted(DIBLOKIR))}")
+    print(f"UJI: build_static.py --alert tanpa {', '.join(sorted(DIBLOKIR))}")
     print("=" * 70)
-    sys.argv = ["build_static.py"]
+    # WAJIB sama persis dengan perintah di .github/workflows/idx-monitor.yml.
+    # Bug KeyError 'close' lolos ke produksi karena uji ini memakai perintah TANPA
+    # --alert, sedangkan CI memakainya — jalur alert tidak pernah tersentuh.
+    sys.argv = ["build_static.py", "--alert"]
     try:
         runpy.run_path("build_static.py", run_name="__main__")
     except SystemExit:

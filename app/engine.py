@@ -16,6 +16,9 @@ from idxquant.universe import BENCHMARK, CANDIDATES, sector_of
 
 WIB = dt.timezone(dt.timedelta(hours=7))
 
+# Tiga setup dihapus dari daftar karena terbukti tidak signifikan
+# (RSLeader t=0,89 · PullbackUptrend t=0,44 · MeanReversion N=10).
+# Bukti historisnya tetap disimpan di SETUP_EVIDENCE untuk rujukan.
 SETUP_LABELS = {
     "BaseBreakout":    ("Base Breakout", "Jebol tertinggi 55 hari + volume 1,8x", "kuat"),
     "FVGBullish":      ("FVG Bullish (ICT)", "Celah tiga-lilin, ketidakseimbangan", "kuat"),
@@ -25,9 +28,6 @@ SETUP_LABELS = {
     "TrendTemplate":   ("Trend Template", "Struktur MA rapi, dekat puncak 52mg", "sedang"),
     "MACDMomentum":    ("MACD Momentum [filter]", "MACD >0 dan menguat, di atas MA50", "sedang"),
     "BOSNaik":         ("BOS Naik [filter]", "Harga di atas swing high terakhir", "sedang"),
-    "RSLeader":        ("RS Leader", "Kekuatan relatif vs IHSG tertinggi 63h", "lemah"),
-    "PullbackUptrend": ("Pullback Uptrend", "Koreksi ke EMA21 dalam tren naik", "lemah"),
-    "MeanReversion":   ("Mean Reversion", "Jenuh jual di atas MA200", "lemah"),
 }
 
 # Bukti dari event study 5 tahun: (avg return 21 hari setelah biaya, jumlah sinyal, t-stat)

@@ -250,9 +250,17 @@ def cek_setup_harian(scan_rows: list[dict], cooldown_menit: int = 720) -> list[d
             if sudah_dikirim(kunci, cooldown_menit):
                 continue
             judul = f"{r['ticker']} — {s}"
-            pesan = (f"Harga {r['close']:,.0f} · skor {r['skor']:.0f}\n"
-                     f"1 bln {r.get('ret_1m',0):+.1f}% · 3 bln {r.get('ret_3m',0):+.1f}%\n"
-                     f"Edge historis +{cfg['edge']:.2f}% per 21 hari")
+            # Semua field diakses lewat .get(): pemanggil bisa mengirim baris dari
+            # sumber berbeda (screener, model gabungan) yang tidak selalu lengkap.
+            # Alert TIDAK boleh mematikan seluruh build hanya karena satu kolom hilang.
+            harga = r.get("close") or r.get("harga") or 0
+            skor = r.get("skor")
+            pesan = f"Harga {harga:,.0f}"
+            if skor is not None:
+                pesan += f" · skor {skor:.0f}"
+            pesan += (f"\n1 bln {r.get('ret_1m') or 0:+.1f}% · "
+                      f"3 bln {r.get('ret_3m') or 0:+.1f}%\n"
+                      f"Edge historis +{cfg['edge']:.2f}% per 21 hari")
             if r.get("level_teks"):
                 pesan += "\n\n" + r["level_teks"]
             keluar.append({"kunci": kunci, "ticker": r["ticker"], "aturan": s,

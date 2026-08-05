@@ -193,8 +193,13 @@ def main(kirim_alert: bool = False, top_scalp: int = 20):
     # ---- level: kandidat bersinyal DAN kandidat model gabungan ----
     # Harus setelah blok gabungan, karena tab Peluang di HP menampilkan emiten
     # yang belum tentu punya setup — tanpa ini levelnya kosong di sana.
-    dari_gab = [{"ticker": g["ticker"], "setups": g.get("setups", [])}
-                for g in gab_rows[:30]]
+    # Ambil baris LENGKAP dari screener, bukan menyusun dict parsial. Versi
+    # sebelumnya hanya memuat ticker+setups, lalu cek_setup_harian() gagal dengan
+    # KeyError 'close' — dan hanya pada jalur --alert, sehingga lolos dari
+    # pengujian tanpa flag itu.
+    peta_rows = {x["ticker"]: x for x in rows}
+    dari_gab = [peta_rows[g["ticker"]] for g in gab_rows[:30]
+                if g["ticker"] in peta_rows]
     sudah, kandidat = set(), []
     for x in [x for x in rows if x["setups"]][:25] + dari_gab:
         if x["ticker"] not in sudah:
