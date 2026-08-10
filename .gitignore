@@ -2,6 +2,9 @@
 data/*.csv
 data/intraday.db*
 data/alerts.db*
+# Jurnal prediksi SENGAJA di-commit: riwayat git menjadi bukti waktu bahwa
+# prediksi ditulis SEBELUM hasilnya diketahui. Itu inti mekanisme buktinya.
+!data/jurnal.db
 
 # JANGAN PERNAH commit ini: berisi token Telegram dan topik ntfy
 data/alert_config.json
