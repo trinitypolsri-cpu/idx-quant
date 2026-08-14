@@ -118,7 +118,24 @@ class Engine:
             state, label = "closed", "Bursa tutup"
         return {"state": state, "label": label, "waktu_wib": now.strftime("%d %b %Y %H:%M")}
 
+    # Server yang dibiarkan menyala berhari-hari akan menampilkan data lama:
+    # muatan dilakukan sekali saat start dan disimpan di memori. Pengguna melihat
+    # "05 Agustus" pada 14 Agustus karena prosesnya memang belum pernah memuat ulang.
+    MAKS_UMUR_JAM = 4
+
+    def _perlu_refresh(self) -> bool:
+        if self.busy or self.last_refresh is None:
+            return False
+        umur = (dt.datetime.now(WIB) - self.last_refresh).total_seconds() / 3600
+        if umur < self.MAKS_UMUR_JAM:
+            return False
+        # Di luar jam bursa tidak ada data baru; cukup segarkan sekali sehari.
+        return self.market_state()["state"] == "open" or umur > 20
+
     def overview(self) -> dict:
+        if self._perlu_refresh():
+            self.refresh_async(use_cache=False)
+
         if self.bench is None or self.scan.empty:
             return {"siap": False, "status": self.status,
                     "progress": self.progress, "market": self.market_state()}
