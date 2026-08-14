@@ -26,7 +26,7 @@ setup teknikal secara statistik dan mem-backtest strategi momentum dengan biaya 
 
 ## Menjalankan aplikasi
 
-Klik dua kali **`Jalankan Screener.bat`**, atau:
+Klik dua kali **`jalankan.bat`**, atau:
 
 ```bash
 python -m app.server 8848
